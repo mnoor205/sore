@@ -1,0 +1,42 @@
+# Runtime secrets. scripts/setup-local.mjs generates the three local signing secrets.
+# Use separate random values of at least 32 characters. Share ONLY the bridge secret
+# between the app Worker and MCP Worker. Never use development values in production.
+SESSION_SECRET=
+DOWNLOAD_SECRET=
+OAUTH_BRIDGE_SECRET=
+
+# Test/sandbox key for development; prefer a restricted key with required permissions.
+# Creator sales use Stripe-Account; platform billing never does.
+STRIPE_SECRET_KEY=
+STRIPE_CONNECT_WEBHOOK_SECRET=
+STRIPE_BILLING_WEBHOOK_SECRET=
+
+# Create both prices on the PLATFORM account. LTD must match LTD_PRICE_CENTS in USD.
+# Recurring pricing is intentionally unset until the operator chooses it.
+STRIPE_LTD_PRICE_ID=
+STRIPE_RECURRING_PRICE_ID=
+
+# Hosted Cloudflare Access OTP: public configuration, not secrets.
+ACCESS_ISSUER=
+ACCESS_AUDIENCE=
+
+# R2 S3 credentials restricted to the private deliverables bucket.
+# Required for production browser-to-R2 presigned PUT uploads.
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+
+# Resend transactional API, on the EMAIL Worker only. Verify your sending domain first.
+# Development mode records attempts without contacting this provider.
+EMAIL_API_KEY=
+EMAIL_FROM=
+
+# Leave false until PLATFORM tax settings, tax categories, address and registrations
+# have been independently verified. This enables calculation, not tax remittance.
+PLATFORM_TAX_ENABLED=false
+
+# Hosted branded OTP also needs a native LOGIN_EMAIL send_email binding.
+# AUTH_PROVIDER=email
+# OTP_FROM=login@getsore.me
+# Keep ACCESS_ISSUER fixed to preserve creator ownership.

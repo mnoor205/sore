@@ -1,0 +1,111 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "coachlane-email-dev",
+  "main": "workers/email.ts",
+  "compatibility_date": "2026-11-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true,
+    },
+    "redact_query_string": true,
+  },
+  "vars": {
+    "APP_MODE": "development",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "coachlane-dev",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "FULFILLMENT",
+        "queue": "coachlane-email-dev",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "coachlane-email-dev",
+        "max_batch_size": 10,
+        "max_retries": 8,
+        "dead_letter_queue": "coachlane-email-dead-dev",
+      },
+    ],
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"],
+  },
+  "env": {
+    "production": {
+      "name": "coachlane-email",
+      "vars": {
+        "APP_MODE": "production",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "coachlane-production",
+          "database_id": "REPLACE_PRODUCTION_D1_ID",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "FULFILLMENT",
+            "queue": "coachlane-email-production",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "coachlane-email-production",
+            "max_batch_size": 10,
+            "max_retries": 8,
+            "dead_letter_queue": "coachlane-email-dead-production",
+          },
+        ],
+      },
+    },
+    "staging": {
+      "name": "coachlane-email-staging",
+      "vars": {
+        "APP_MODE": "production",
+        "APP_URL": "https://coachlane.getsore.me",
+        "MCP_URL": "https://coachlane-mcp-staging.warda.workers.dev",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "coachlane-staging",
+          "database_id": "ccf1fff4-4a18-4876-8b77-a7c284f32989",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "FULFILLMENT",
+            "queue": "coachlane-email-staging",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "coachlane-email-staging",
+            "max_batch_size": 10,
+            "max_retries": 8,
+            "dead_letter_queue": "coachlane-email-dead-staging",
+          },
+        ],
+      },
+      "workers_dev": false,
+      "minify": true,
+    },
+  },
+  "account_id": "27478de5040614b0328a6976a52b57d1",
+}

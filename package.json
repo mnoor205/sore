@@ -1,0 +1,47 @@
+{
+  "name": "coachlane",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:next": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "build:worker": "XDG_CONFIG_HOME=/tmp/coachlane-config WRANGLER_SEND_METRICS=false opennextjs-cloudflare build",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
+    "db:demo": "wrangler d1 execute DB --local --file fixtures/demo.sql",
+    "cf:types": "XDG_CONFIG_HOME=/tmp/coachlane-config WRANGLER_SEND_METRICS=false wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "dev:mcp": "wrangler dev --config wrangler.mcp.jsonc --port 8788",
+    "dev:email": "wrangler dev --config wrangler.email.jsonc --port 8789",
+    "setup:local": "node scripts/setup-local.mjs --demo",
+    "test:app": "vitest run --config vitest.app.config.ts",
+    "bundle:check": "XDG_CONFIG_HOME=/tmp/coachlane-config WRANGLER_SEND_METRICS=false wrangler deploy --dry-run --env= --outdir artifacts/app",
+    "verify": "npm run check && npm test && npm run build:worker && npm run bundle:check && npm run test:app"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.4",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@opennextjs/cloudflare": "1.20.17",
+    "aws4fetch": "1.0.20",
+    "drizzle-orm": "0.45.4",
+    "jose": "6.2.18",
+    "lucide-react": "0.577.0",
+    "next": "16.4.6",
+    "react": "19.2.9",
+    "react-dom": "19.2.9",
+    "stripe": "23.2.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "24.12.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "esbuild": "0.28.2",
+    "miniflare": "5.20261118.0-beta",
+    "prettier": "3.10.1",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4",
+    "wrangler": "4.165.0"
+  }
+}

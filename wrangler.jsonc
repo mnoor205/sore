@@ -1,0 +1,165 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "coachlane-dev",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-19",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true,
+    },
+    "redact_query_string": true,
+  },
+  "vars": {
+    "APP_MODE": "development",
+    "APP_URL": "http://localhost:3000",
+    "MCP_URL": "http://localhost:8788",
+    "PLATFORM_FEE_BPS": "0",
+    "LTD_PRICE_CENTS": "9900",
+    "LTD_LIMIT": "100",
+    "MAX_PRODUCTS": "50",
+    "MAX_UPLOAD_MB": "25",
+    "MAX_STORAGE_MB": "500",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "coachlane-dev",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "coachlane-private-dev",
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "FULFILLMENT",
+        "queue": "coachlane-email-dev",
+      },
+    ],
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "coachlane-dev",
+    },
+  ],
+  "env": {
+    "production": {
+      "name": "coachlane",
+      "vars": {
+        "APP_MODE": "production",
+        "APP_URL": "https://REPLACE_APP_DOMAIN",
+        "MCP_URL": "https://REPLACE_MCP_DOMAIN",
+        "PLATFORM_FEE_BPS": "0",
+        "LTD_PRICE_CENTS": "9900",
+        "LTD_LIMIT": "100",
+        "MAX_PRODUCTS": "50",
+        "MAX_UPLOAD_MB": "25",
+        "MAX_STORAGE_MB": "500",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "coachlane-production",
+          "database_id": "REPLACE_PRODUCTION_D1_ID",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "FILES",
+          "bucket_name": "coachlane-private-production",
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "FULFILLMENT",
+            "queue": "coachlane-email-production",
+          },
+        ],
+      },
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "coachlane",
+        },
+      ],
+      "workers_dev": false,
+    },
+    "staging": {
+      "name": "coachlane-staging",
+      "send_email": [
+        {
+          "name": "LOGIN_EMAIL",
+          "allowed_sender_addresses": ["login@getsore.me"],
+        },
+      ],
+      "vars": {
+        "APP_MODE": "production",
+        "APP_URL": "https://coachlane.getsore.me",
+        "MCP_URL": "https://coachlane-mcp-staging.warda.workers.dev",
+        "PLATFORM_FEE_BPS": "0",
+        "LTD_PRICE_CENTS": "9900",
+        "LTD_LIMIT": "100",
+        "MAX_PRODUCTS": "50",
+        "MAX_UPLOAD_MB": "25",
+        "MAX_STORAGE_MB": "500",
+        "PLATFORM_TAX_ENABLED": "false",
+        "ACCESS_ISSUER": "https://polished-butterfly-f3b5.cloudflareaccess.com",
+        "ACCESS_AUDIENCE": "7bd5f246386c0e56384f7bdd5a11f26397ce7d2eb70879b490a0016b14d0ccdc",
+        "AUTH_PROVIDER": "email",
+        "OTP_FROM": "login@getsore.me",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "coachlane-staging",
+          "database_id": "ccf1fff4-4a18-4876-8b77-a7c284f32989",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "FILES",
+          "bucket_name": "coachlane-private-staging",
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "FULFILLMENT",
+            "queue": "coachlane-email-staging",
+          },
+        ],
+      },
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "coachlane-staging",
+        },
+      ],
+      "workers_dev": false,
+      "minify": true,
+      "routes": [
+        {
+          "pattern": "coachlane.getsore.me",
+          "custom_domain": true,
+          "zone_name": "getsore.me",
+        },
+      ],
+    },
+  },
+  "account_id": "27478de5040614b0328a6976a52b57d1",
+}

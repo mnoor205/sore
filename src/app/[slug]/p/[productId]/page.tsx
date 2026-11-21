@@ -1,0 +1,64 @@
+import { forPublicProduct } from "@/lib/presentation";
+import { notFound } from "next/navigation";
+import { and, eq } from "drizzle-orm";
+import { identity } from "@/lib/auth";
+import { getEnv } from "@/lib/env";
+import { database } from "@/lib/db";
+import { products } from "@/lib/schema";
+import { getStore, publicProduct } from "@/lib/catalog";
+import Storefront from "@/components/storefront";
+export const dynamic = "force-dynamic";
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string; productId: string }>;
+  searchParams: Promise<{ preview?: string }>;
+}) {
+  const env = await getEnv(),
+    { slug, productId } = await params;
+  let store;
+  try {
+    store = await getStore(env, slug);
+  } catch {
+    notFound();
+  }
+  let ownPreview = false;
+  if ((await searchParams).preview === "1") {
+    try {
+      ownPreview = (await identity(env)) === store.ownerId;
+    } catch {}
+  }
+  if (store.publicationState !== "published" && !ownPreview) notFound();
+  const p = await database(env)
+    .select(publicProduct)
+    .from(products)
+    .where(
+      and(
+        eq(products.storeId, store.id),
+        eq(products.id, productId),
+        eq(products.state, "published"),
+      ),
+    )
+    .get();
+  if (!p) notFound();
+  return (
+    <Storefront
+      store={{
+        name: store.name,
+        slug: store.slug,
+        bio: store.bio,
+        photo: store.photo,
+        accent: store.accent,
+        currency: store.currency,
+        supportEmail: store.supportEmail,
+        socials: JSON.parse(store.socials),
+        demo: !!store.demo,
+        stylePreset: store.stylePreset,
+      }}
+      products={[forPublicProduct(p)]}
+      selectedId={p.id}
+      preview={(await searchParams).preview === "1"}
+    />
+  );
+}

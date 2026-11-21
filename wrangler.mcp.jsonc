@@ -1,0 +1,81 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "coachlane-mcp-dev",
+  "main": "workers/mcp.ts",
+  "compatibility_date": "2026-11-19",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true,
+    },
+    "redact_query_string": true,
+  },
+  "vars": {
+    "APP_MODE": "development",
+    "APP_URL": "http://localhost:3000",
+    "MCP_URL": "http://localhost:8788",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "coachlane-dev",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "00000000000000000000000000000001",
+    },
+  ],
+  "env": {
+    "production": {
+      "name": "coachlane-mcp",
+      "vars": {
+        "APP_MODE": "production",
+        "APP_URL": "https://REPLACE_APP_DOMAIN",
+        "MCP_URL": "https://REPLACE_MCP_DOMAIN",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "coachlane-production",
+          "database_id": "REPLACE_PRODUCTION_D1_ID",
+        },
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "OAUTH_KV",
+          "id": "REPLACE_PRODUCTION_KV_ID",
+        },
+      ],
+    },
+    "staging": {
+      "name": "coachlane-mcp-staging",
+      "vars": {
+        "APP_MODE": "production",
+        "APP_URL": "https://coachlane.getsore.me",
+        "MCP_URL": "https://coachlane-mcp-staging.warda.workers.dev",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "coachlane-staging",
+          "database_id": "ccf1fff4-4a18-4876-8b77-a7c284f32989",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "OAUTH_KV",
+          "id": "3ebeb53038014259a26f9f8d205b1fa7",
+        },
+      ],
+      "workers_dev": true,
+      "minify": true,
+    },
+  },
+  "account_id": "27478de5040614b0328a6976a52b57d1",
+}

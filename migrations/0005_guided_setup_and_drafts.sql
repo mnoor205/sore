@@ -1,0 +1,20 @@
+-- Existing storefronts stay published; newly created stores explicitly start private.
+ALTER TABLE stores ADD COLUMN publication_state TEXT NOT NULL DEFAULT 'published';
+ALTER TABLE stores ADD COLUMN style_preset TEXT NOT NULL DEFAULT 'studio';
+ALTER TABLE stores ADD COLUMN what_they_sell TEXT NOT NULL DEFAULT '';
+ALTER TABLE products ADD COLUMN presentation_json TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE products ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE products ADD COLUMN last_change_id TEXT;
+ALTER TABLE products ADD COLUMN revision_of TEXT;
+ALTER TABLE products ADD COLUMN base_version INTEGER;
+ALTER TABLE products ADD COLUMN suggested_price INTEGER;
+ALTER TABLE products ADD COLUMN price_confirmed INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE products ADD COLUMN draft_source TEXT NOT NULL DEFAULT 'dashboard';
+ALTER TABLE assets ADD COLUMN purpose TEXT NOT NULL DEFAULT 'deliverable';
+ALTER TABLE orders ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contacts ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE connections ADD COLUMN scopes TEXT NOT NULL DEFAULT 'store:read';
+CREATE TABLE onboarding_progress(owner_id TEXT PRIMARY KEY,step INTEGER NOT NULL DEFAULT 1,content_json TEXT NOT NULL DEFAULT '{}',store_id TEXT,product_id TEXT,version INTEGER NOT NULL DEFAULT 1,completed INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL);
+CREATE TABLE draft_requests(store_id TEXT NOT NULL,request_id TEXT NOT NULL,operation TEXT NOT NULL,input_hash TEXT NOT NULL,product_id TEXT NOT NULL,response_json TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(store_id,request_id));
+CREATE TABLE draft_changes(id TEXT PRIMARY KEY,store_id TEXT NOT NULL,product_id TEXT NOT NULL,version INTEGER NOT NULL,source TEXT NOT NULL,actor_id TEXT NOT NULL,content_json TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE INDEX draft_changes_product ON draft_changes(store_id,product_id,version);
