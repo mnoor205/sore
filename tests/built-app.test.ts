@@ -219,7 +219,9 @@ it("serves the actual OpenNext build and its static assets in workerd", async ()
 it("protects creator APIs and returns truthful demo metrics without private public payloads", async () => {
   const unauth = await request("/api/workspace", undefined, "GET", "");
   expect(unauth.status).toBe(401);
-  const w = await json("/api/workspace");
+  const w = await json("/api/workspace?days=7&visits=1");
+  expect(w.visits).toMatchObject({ total: 0, previous: 0, products: [] });
+  expect(w.visits.days).toHaveLength(7);
   expect(w.summary.grossProductSales).toBe(0);
   expect(w.products).toHaveLength(3);
   const pub = await json("/api/public/jamie-lane");

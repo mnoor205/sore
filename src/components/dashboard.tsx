@@ -1,6 +1,8 @@
 "use client";
+import VisitAnalytics from "./visit-analytics";
+import type { VisitReport } from "@/lib/reporting";
 import Brand from "./brand";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -73,6 +75,7 @@ type Workspace = {
   products: Product[];
   summary: Summary;
   performance: Performance;
+  visits: VisitReport | null;
   entitlement: {
     kind: string;
     status: string;
@@ -161,16 +164,23 @@ export default function Dashboard({ section }: { section: string }) {
     [stan, setStan] = useState(false),
     [definitions, setDefinitions] = useState(false),
     [country, setCountry] = useState<StripeCountry | "">("");
+  const requestVersion = useRef(0);
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
     try {
-      setW(await api<Workspace>(`workspace?days=${days}`));
+      const workspace = await api<Workspace>(
+        `workspace?days=${days}&visits=${section === "overview" ? 1 : 0}`,
+      );
+      if (version !== requestVersion.current) return;
+      setW(workspace);
       setError("");
     } catch (e) {
+      if (version !== requestVersion.current) return;
       const message = (e as Error).message;
       if (message.includes("Create your store")) router.push("/onboarding");
       else setError(message);
     }
-  }, [days, router]);
+  }, [days, router, section]);
   useEffect(() => {
     load();
   }, [load]);
@@ -276,7 +286,9 @@ export default function Dashboard({ section }: { section: string }) {
             : settings.find((n) => n.id === section)?.name ||
               navigation.find((n) => n.id === section)?.name ||
               "Overview";
-  const views = w.performance.products.reduce((a, p) => a + (p.views || 0), 0),
+  const views = w.visits?.total ?? 0,
+    showVisits =
+      s.publicationState === "published" || views > 0 || live.length > 0,
     tasks = [
       {
         name: "Make your storefront yours",
@@ -470,7 +482,8 @@ export default function Dashboard({ section }: { section: string }) {
             </div>
             <div className="actions">
               {section === "overview" &&
-                !!(w.summary.paidOrders || w.summary.freeSignups || views) &&
+                (showVisits ||
+                  !!(w.summary.paidOrders || w.summary.freeSignups)) &&
                 dateFilter}
               {section === "products" && (
                 <>
@@ -517,6 +530,9 @@ export default function Dashboard({ section }: { section: string }) {
               </button>
             </div>
           )}
+          {section === "overview" && showVisits && w.visits && (
+            <VisitAnalytics key={w.visits.days[0]?.day} report={w.visits} />
+          )}
           {section === "overview" &&
             (!live.length ||
               !(w.summary.paidOrders || w.summary.freeSignups || views)) && (
@@ -561,7 +577,7 @@ export default function Dashboard({ section }: { section: string }) {
                     <ExternalLink size={17} />
                   </a>
                 </div>
-                <div className="stat-grid">
+                <div className="stat-grid sales-stats">
                   {[
                     {
                       label: "Gross product sales",
@@ -580,14 +596,6 @@ export default function Dashboard({ section }: { section: string }) {
                       value: String(w.summary.freeSignups),
                       icon: Download,
                       note: "Resource requests",
-                    },
-                    {
-                      label: "Product views",
-                      value: views ? String(views) : "—",
-                      icon: Eye,
-                      note: views
-                        ? "Measured visitor views"
-                        : "No measured views yet",
                     },
                   ].map((m) => (
                     <div className="stat-card" key={m.label}>

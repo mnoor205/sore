@@ -47,6 +47,7 @@ import {
 import {
   defaultRange,
   productPerformance,
+  productVisitReport,
   salesSummary,
   storeContext,
 } from "@/lib/reporting";
@@ -388,22 +389,27 @@ async function route(req: NextRequest, { params }: Context) {
         from && to
           ? { from, to }
           : defaultRange(Number(query.get("days") || 30));
-      const [items, summary, performance, entitlement] = await Promise.all([
-        catalog(env, s.id),
-        salesSummary(env, s.id, range),
-        productPerformance(env, s.id, range),
-        db
-          .select()
-          .from(entitlements)
-          .where(eq(entitlements.storeId, s.id))
-          .get(),
-      ]);
+      const [items, summary, performance, visits, entitlement] =
+        await Promise.all([
+          catalog(env, s.id),
+          salesSummary(env, s.id, range),
+          productPerformance(env, s.id, range),
+          query.get("visits") === "1"
+            ? productVisitReport(env, s.id, range)
+            : null,
+          db
+            .select()
+            .from(entitlements)
+            .where(eq(entitlements.storeId, s.id))
+            .get(),
+        ]);
       const quota = await storeLimits(env, s.id);
       return json({
         store: s,
         products: items,
         summary,
         performance,
+        visits,
         entitlement: entitlement
           ? {
               kind: entitlement.kind,

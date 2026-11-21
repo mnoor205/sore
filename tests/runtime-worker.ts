@@ -11,7 +11,7 @@ import {
   download,
 } from "../src/lib/access";
 import { getProduct, saveProduct } from "../src/lib/catalog";
-import { salesSummary } from "../src/lib/reporting";
+import { productVisitReport, salesSummary } from "../src/lib/reporting";
 import {
   createMcpServer,
   authorizeConnection,
@@ -181,6 +181,9 @@ export default {
           break;
         case "/test/upload":
           value = await completeUpload(env, b.storeId, b.assetId);
+          break;
+        case "/test/visits":
+          value = await productVisitReport(env, b.storeId, b.range);
           break;
         case "/test/report":
           value = await salesSummary(env, b.storeId, b.range);

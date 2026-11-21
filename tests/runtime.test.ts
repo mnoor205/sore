@@ -250,7 +250,9 @@ beforeAll(async () => {
       "\n" +
       readFileSync("migrations/0008_import_sources.sql", "utf8") +
       "\n" +
-      readFileSync("migrations/0009_founding_price_ladder.sql", "utf8"),
+      readFileSync("migrations/0009_founding_price_ladder.sql", "utf8") +
+      "\n" +
+      readFileSync("migrations/0011_visit_reporting.sql", "utf8"),
   });
 }, 60000);
 beforeEach(async () => {
@@ -644,6 +646,51 @@ describe("MCP authorization and reporting", () => {
       (await call("connection", { props: { ...props, storeId: "b" } })).status,
     ).toBe(401);
   });
+  it.each([7, 30, 90, 365])(
+    "reconciles %i days of product views at UTC boundaries",
+    async (length) => {
+      const end = Date.UTC(2026, 10, 21);
+      const day = 86400000;
+      const start = end - length * day;
+      for (const [index, [product, time]] of (
+        [
+          ["free", start - length * day],
+          ["paid", start - 1],
+          ["paid", start],
+          ["free", start],
+          ["paid", end - 1],
+          ["free", end],
+          ["other", start],
+        ] as const
+      ).entries()) {
+        await query("INSERT INTO views VALUES (?, ?, ?, ?, ?, ?)", [
+          String(index),
+          product === "other" ? "b" : "a",
+          product,
+          "visitor",
+          new Date(time).toISOString().slice(0, 10),
+          time,
+        ]);
+      }
+      const r = await call("visits", {
+        storeId: "a",
+        range: {
+          from: new Date(start).toISOString(),
+          to: new Date(end).toISOString(),
+        },
+      });
+      expect(r.status).toBe(200);
+      expect(r.data.days).toHaveLength(length);
+      expect(r.data.days[0].count).toBe(2);
+      expect(r.data.days[1].count).toBe(0);
+      expect(r.data.days.at(-1).count).toBe(1);
+      expect(r.data.total).toBe(3);
+      expect(r.data.previous).toBe(2);
+      expect(r.data.products.map((p: { count: number }) => p.count)).toEqual([
+        2, 1,
+      ]);
+    },
+  );
   it("MCP totals match the dashboard reporting service", async () => {
     const o = await checkout();
     await confirm(o);
