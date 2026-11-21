@@ -76,8 +76,8 @@
       "name": "coachlane-email-staging",
       "vars": {
         "APP_MODE": "production",
-        "APP_URL": "https://coachlane.getsore.me",
-        "MCP_URL": "https://coachlane-mcp-staging.warda.workers.dev",
+        "APP_URL": "https://getsore.me",
+        "MCP_URL": "https://mcp.getsore.me",
       },
       "d1_databases": [
         {
