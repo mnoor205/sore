@@ -12,6 +12,7 @@ import {
 let mf: Miniflare;
 let stripeSession: Record<string, unknown> = {};
 let stripeResponses: Record<string, unknown> = {};
+let stripeRequests: { path: string; body: string }[] = [];
 let providerCalls = 0;
 let providerFail = false;
 const props = {
@@ -186,8 +187,8 @@ beforeAll(async () => {
         SESSION_SECRET: "test-session-secret-that-is-at-least-32-characters",
         OAUTH_BRIDGE_SECRET: "test-oauth-secret-that-is-at-least-32-characters",
         STRIPE_SECRET_KEY: "sk_test_fixture",
-        STRIPE_LTD_PRICE_ID: "price_ltd",
-        LTD_LIMIT: "1",
+        STRIPE_LTD_PRODUCT_ID: "prod_ltd",
+        LTD_LIMIT: "7",
         STRIPE_CONNECT_WEBHOOK_SECRET: "whsec_fixture",
         STRIPE_BILLING_WEBHOOK_SECRET: "whsec_platform",
         EMAIL_API_KEY: "test_email_key",
@@ -196,13 +197,18 @@ beforeAll(async () => {
       outboundService: async (req) => {
         if (req.url === accessIssuer + "/cdn-cgi/access/certs")
           return Response.json(accessJwks);
-        if (new URL(req.url).hostname === "api.stripe.com")
+        if (new URL(req.url).hostname === "api.stripe.com") {
+          stripeRequests.push({
+            path: new URL(req.url).pathname,
+            body: await req.clone().text(),
+          });
           return new Response(
             JSON.stringify(
               stripeResponses[new URL(req.url).pathname] || stripeSession,
             ),
             { headers: { "Content-Type": "application/json" } },
           );
+        }
         if (new URL(req.url).hostname === "stan.store")
           return new URL(req.url).pathname === "/coachjo"
             ? new Response(stanFixture(), {
@@ -241,7 +247,9 @@ beforeAll(async () => {
       "\n" +
       readFileSync("migrations/0006_cloudflare_email_auth.sql", "utf8") +
       "\n" +
-      readFileSync("migrations/0008_import_sources.sql", "utf8"),
+      readFileSync("migrations/0008_import_sources.sql", "utf8") +
+      "\n" +
+      readFileSync("migrations/0009_founding_price_ladder.sql", "utf8"),
   });
 }, 60000);
 beforeEach(async () => {
@@ -249,6 +257,7 @@ beforeEach(async () => {
   providerFail = false;
   stripeSession = {};
   stripeResponses = {};
+  stripeRequests = [];
   await call("init", {
     sql: `DELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM import_sources;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
   });
@@ -599,7 +608,7 @@ describe("MCP authorization and reporting", () => {
         },
       },
     });
-    expect(initialized.data.result.serverInfo.name).toBe("coachlane");
+    expect(initialized.data.result.serverInfo.name).toBe("sore");
     const tools = await call("mcp", {
       props,
       message: { jsonrpc: "2.0", id: 2, method: "tools/list" },
@@ -963,7 +972,7 @@ it("verified lifetime activation preserves its grant and cannot be converted or 
     "INSERT INTO entitlements(store_id,customer_id,updated_at) VALUES ('a','cus_a',1)",
   );
   await query(
-    "INSERT INTO billing_sessions(id,store_id,kind,session_id,expires_at,created_at,grant_json) VALUES ('r','a','lifetime','cs_ltd',9999999999999,1,?)",
+    "INSERT INTO billing_sessions(id,store_id,kind,session_id,expires_at,created_at,grant_json,amount) VALUES ('r','a','lifetime','cs_ltd',9999999999999,1,?,9900)",
     [grant],
   );
   stripeSession = {
@@ -971,6 +980,8 @@ it("verified lifetime activation preserves its grant and cannot be converted or 
     payment_status: "paid",
     customer: "cus_a",
     payment_intent: "pi_ltd",
+    currency: "usd",
+    amount_subtotal: 9900,
     metadata: {
       stream: "platform",
       store_id: "a",
@@ -1079,16 +1090,38 @@ it("subscription webhooks activate, renew, preserve the failure grace deadline a
       .status,
   ).toBe("inactive");
 });
+async function seedLifetimeBuyers(count: number) {
+  for (let i = 0; i < count; i++) {
+    await query(
+      "INSERT INTO stores(id,owner_id,slug,name,created_at) VALUES (?,?,?,?,1)",
+      [`buyer${i}`, `owner_buyer${i}`, `buyer-${i}`, `Buyer ${i}`],
+    );
+    await query(
+      "INSERT INTO entitlements(store_id,kind,status,updated_at) VALUES (?,'lifetime','active',1)",
+      [`buyer${i}`],
+    );
+    await query(
+      "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES (?,?,'lifetime','paid',?,1,1)",
+      [`paid${i}`, `buyer${i}`, `cs_paid_${i}`],
+    );
+  }
+}
+function lifetimeCheckoutAmounts() {
+  return stripeRequests
+    .filter((r) => r.path === "/v1/checkout/sessions")
+    .map((r) =>
+      Number(
+        new URLSearchParams(r.body).get(
+          "line_items[0][price_data][unit_amount]",
+        ),
+      ),
+    );
+}
 it("founding-offer slots are reserved atomically across stores", async () => {
+  await seedLifetimeBuyers(6);
   await query(
     "INSERT INTO entitlements(store_id,customer_id,updated_at) VALUES ('a','cus_a',1),('b','cus_b',1)",
   );
-  stripeResponses["/v1/prices/price_ltd"] = {
-    id: "price_ltd",
-    currency: "usd",
-    unit_amount: 9900,
-    recurring: null,
-  };
   stripeResponses["/v1/checkout/sessions"] = {
     id: "cs_offer",
     url: "https://checkout.stripe.com/test",
@@ -1102,6 +1135,74 @@ it("founding-offer slots are reserved atomically across stores", async () => {
     (await query("SELECT * FROM billing_sessions WHERE status='pending'"))
       .length,
   ).toBe(1);
+});
+it("founding price starts at $99 and rises $10 every five buys", async () => {
+  await query(
+    "INSERT INTO entitlements(store_id,customer_id,updated_at) VALUES ('a','cus_a',1),('b','cus_b',1)",
+  );
+  stripeResponses["/v1/checkout/sessions"] = {
+    id: "cs_offer",
+    url: "https://checkout.stripe.com/test",
+  };
+  expect(
+    (await call("billing", { storeId: "a", kind: "lifetime" })).status,
+  ).toBe(200);
+  await seedLifetimeBuyers(5);
+  stripeResponses["/v1/checkout/sessions"] = {
+    id: "cs_offer_2",
+    url: "https://checkout.stripe.com/test",
+  };
+  // Five completed founding purchases move the next buyer to $109.
+  expect(
+    (await call("billing", { storeId: "b", kind: "lifetime" })).status,
+  ).toBe(200);
+  expect(lifetimeCheckoutAmounts()).toEqual([9900, 10900]);
+  const body = new URLSearchParams(
+    stripeRequests.find((r) => r.path === "/v1/checkout/sessions")!.body,
+  );
+  expect(body.get("line_items[0][price_data][product]")).toBe("prod_ltd");
+  expect(body.get("line_items[0][price_data][currency]")).toBe("usd");
+  expect(
+    (
+      await query(
+        "SELECT amount FROM billing_sessions WHERE kind='lifetime' AND status='pending'",
+      )
+    )
+      .map((r: { amount: number }) => r.amount)
+      .sort(),
+  ).toEqual([10900, 9900].sort());
+});
+it("lifetime activation rejects a payment that doesn't match the reserved tier", async () => {
+  await query(
+    "INSERT INTO entitlements(store_id,customer_id,updated_at) VALUES ('a','cus_a',1)",
+  );
+  await query(
+    "INSERT INTO billing_sessions(id,store_id,kind,session_id,expires_at,created_at,grant_json,amount) VALUES ('r','a','lifetime','cs_ltd',9999999999999,1,'{}',10900)",
+  );
+  stripeSession = {
+    id: "cs_ltd",
+    payment_status: "paid",
+    customer: "cus_a",
+    payment_intent: "pi_ltd",
+    currency: "usd",
+    amount_subtotal: 9900,
+    metadata: {
+      stream: "platform",
+      store_id: "a",
+      kind: "lifetime",
+      reservation: "r",
+    },
+  };
+  expect(
+    (
+      await platformEvent("evt_cheap", "checkout.session.completed", {
+        id: "cs_ltd",
+      })
+    ).status,
+  ).not.toBe(200);
+  expect(
+    (await query("SELECT kind FROM entitlements WHERE store_id='a'"))[0].kind,
+  ).not.toBe("lifetime");
 });
 
 describe("Guided setup and authorized draft writes", () => {

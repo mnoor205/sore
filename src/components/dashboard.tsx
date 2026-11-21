@@ -79,7 +79,13 @@ type Workspace = {
   mode: string;
   mcpUrl: string;
   feesBps: number;
-  ltdPrice: number;
+  founding: {
+    price: number;
+    nextPrice: number;
+    leftAtPrice: number;
+    remaining: number;
+    available: boolean;
+  };
   recurringConfigured: boolean;
   stripeConfigured: boolean;
   limits: { products: number; uploadMB: number; storageMB: number };
@@ -228,7 +234,7 @@ export default function Dashboard({ section }: { section: string }) {
     return (
       <div className="initial-loading">
         <Link href="/" className="brand">
-          <span className="brand-icon">c</span>coachlane.
+          <span className="brand-icon">s</span>sore.
         </Link>
         {error ? (
           <div className="error-box">
@@ -312,7 +318,7 @@ export default function Dashboard({ section }: { section: string }) {
     <div className="app-shell">
       <aside className={"sidebar " + (menu ? "sidebar-open" : "")}>
         <Link className="brand" href="/dashboard">
-          <span className="brand-icon">c</span>coachlane
+          <span className="brand-icon">s</span>sore
           <span className="wordmark-dot">.</span>
         </Link>
         <button
@@ -521,7 +527,7 @@ export default function Dashboard({ section }: { section: string }) {
                     <small>
                       {typeof window !== "undefined"
                         ? window.location.host
-                        : "coachlane"}
+                        : "sore"}
                       /{s.slug}
                     </small>
                   </span>
@@ -1229,7 +1235,7 @@ export default function Dashboard({ section }: { section: string }) {
                     Connect a compatible AI client to draft product copy from
                     your material, then review it before publishing. You can
                     also share your catalog and measured store performance. Your
-                    AI provides the reasoning. Coachlane provides the authorized
+                    AI provides the reasoning. Sore provides the authorized
                     context.
                   </p>
                   <div className="permission-grid">
@@ -1271,12 +1277,11 @@ export default function Dashboard({ section }: { section: string }) {
                     </b>
                     <p>
                       Run the MCP worker, then add this URL as a remote
-                      Streamable HTTP connector in your client. Sign in to
-                      Coachlane and approve <code>store:read</code>. To save
-                      drafts, also request <code>products:draft:write</code> and
-                      explicitly check its consent box. Draft access cannot
-                      publish, delete, or change live prices. Production
-                      requires HTTPS.
+                      Streamable HTTP connector in your client. Sign in to Sore
+                      and approve <code>store:read</code>. To save drafts, also
+                      request <code>products:draft:write</code> and explicitly
+                      check its consent box. Draft access cannot publish,
+                      delete, or change live prices. Production requires HTTPS.
                     </p>
                   </div>
                   <p className="fine-print">
@@ -1420,9 +1425,20 @@ export default function Dashboard({ section }: { section: string }) {
                   <Badge tone="purple">FOUNDING OFFER</Badge>
                   <h2>A place to begin.</h2>
                   <div className="plan-price">
-                    {money(w.ltdPrice)}
+                    {money(w.founding.price)}
                     <span>one time · USD</span>
                   </div>
+                  {w.founding.remaining > 0 && (
+                    <p className="founding-ladder">
+                      {w.founding.leftAtPrice === 1
+                        ? "Last spot"
+                        : `${w.founding.leftAtPrice} spots left`}{" "}
+                      at this price
+                      {w.founding.remaining > w.founding.leftAtPrice &&
+                        `, then ${money(w.founding.nextPrice)}`}
+                      .
+                    </p>
+                  )}
                   <p>
                     A limited founding lifetime entitlement to the capabilities
                     and quotas you purchase.
@@ -1447,7 +1463,11 @@ export default function Dashboard({ section }: { section: string }) {
                   </ul>
                   <button
                     className="button primary wide"
-                    disabled={!!busy}
+                    disabled={
+                      !!busy ||
+                      !w.founding.available ||
+                      w.entitlement?.kind === "lifetime"
+                    }
                     onClick={() =>
                       action(
                         "ltd",
@@ -1462,11 +1482,16 @@ export default function Dashboard({ section }: { section: string }) {
                       )
                     }
                   >
-                    Get founding lifetime access
+                    {w.entitlement?.kind === "lifetime"
+                      ? "Founding lifetime active"
+                      : w.founding.remaining === 0
+                        ? "Founding offer sold out"
+                        : "Get founding lifetime access"}
                   </button>
                   <small>
-                    Offer availability is enforced at checkout. No automatic
-                    conversion to a subscription.
+                    The price rises every few founding buys and is locked when
+                    you open checkout. No automatic conversion to a
+                    subscription.
                   </small>
                 </section>
                 <section className="pricing-card">

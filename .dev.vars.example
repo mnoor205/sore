@@ -11,9 +11,10 @@ STRIPE_SECRET_KEY=
 STRIPE_CONNECT_WEBHOOK_SECRET=
 STRIPE_BILLING_WEBHOOK_SECRET=
 
-# Create both prices on the PLATFORM account. LTD must match LTD_PRICE_CENTS in USD.
+# PLATFORM account. The founding lifetime is a Product; checkout prices it from the
+# ladder (LTD_PRICE_CENTS + LTD_STEP_CENTS per LTD_STEP_EVERY completed purchases).
 # Recurring pricing is intentionally unset until the operator chooses it.
-STRIPE_LTD_PRICE_ID=
+STRIPE_LTD_PRODUCT_ID=
 STRIPE_RECURRING_PRICE_ID=
 
 # Hosted Cloudflare Access OTP: public configuration, not secrets.
@@ -27,7 +28,8 @@ R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET_NAME=
 
-# Resend transactional API, on the EMAIL Worker only. Verify your sending domain first.
+# EMAIL Worker: with a FULFILLMENT_EMAIL send_email binding, EMAIL_FROM is a bare
+# address (e.g. delivery@getsore.me). Otherwise the Resend transactional API is used. Verify your sending domain first.
 # Development mode records attempts without contacting this provider.
 EMAIL_API_KEY=
 EMAIL_FROM=

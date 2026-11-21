@@ -114,7 +114,7 @@ export async function requestEmailCode(
     );
   try {
     await env.LOGIN_EMAIL!.send({
-      from: { email: env.OTP_FROM!, name: "Coachlane" },
+      from: { email: env.OTP_FROM!, name: "Sore" },
       to: email,
       ...loginEmail(code),
     });

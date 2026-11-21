@@ -2,7 +2,7 @@ import { dispatchOutbox, deliverEmail } from "../src/lib/email";
 import type { AppEnv } from "../src/lib/env";
 export default {
   async fetch() {
-    return new Response("Coachlane fulfillment worker", { status: 200 });
+    return new Response("Sore fulfillment worker", { status: 200 });
   },
   async scheduled(
     _event: ScheduledController,

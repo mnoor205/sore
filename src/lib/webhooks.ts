@@ -170,6 +170,12 @@ export async function handleStripeEvent(
         )
           throw new AppError("Billing customer mismatch");
         if (m.kind === "lifetime") {
+          const offered = (reservation as { amount?: number | null }).amount;
+          if (
+            s.currency !== "usd" ||
+            (offered != null && s.amount_subtotal !== offered)
+          )
+            throw new AppError("Founding price mismatch");
           const paidIntent =
             typeof s.payment_intent === "string"
               ? s.payment_intent

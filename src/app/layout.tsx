@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "Coachlane — Your expertise, beautifully shared",
+  title: "Sore — Your expertise, beautifully shared",
   description: "A simple storefront for your resources, templates and ideas.",
 };
 export default function Layout({ children }: { children: React.ReactNode }) {

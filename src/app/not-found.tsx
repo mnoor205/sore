@@ -6,7 +6,7 @@ export default function Page() {
       <h1>This little corner is empty.</h1>
       <p>The store or product you’re looking for isn’t available.</p>
       <Link className="button primary" href="/">
-        Back to Coachlane
+        Back to Sore
       </Link>
     </div>
   );

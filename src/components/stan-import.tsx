@@ -202,7 +202,7 @@ export default function StanImport({
               <div className="notice">
                 <b>Currency not supported</b>
                 <p>
-                  Your Stan prices use a currency Coachlane doesn’t support yet.
+                  Your Stan prices use a currency Sore doesn’t support yet.
                   Prices are imported as numbers; check them before publishing.
                 </p>
               </div>

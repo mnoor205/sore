@@ -243,7 +243,7 @@ function mapProduct(page: Json, handle: string): StanProduct | null {
     buttonLabel: label || "Get access",
     note:
       type === "meeting"
-        ? "Coachlane doesn't schedule calls. Add your booking link (for example, Calendly) as the delivery URL."
+        ? "Sore doesn't schedule calls. Add your booking link (for example, Calendly) as the delivery URL."
         : `Stan "${type}" products don't map directly. Add the link where buyers get access.`,
   };
 }
@@ -296,7 +296,7 @@ export async function fetchStanStore(input: string) {
     response = await fetch(`https://stan.store/${encodeURIComponent(handle)}`, {
       headers: {
         Accept: "text/html",
-        "User-Agent": "Mozilla/5.0 (compatible; CoachlaneImporter/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; SoreImporter/1.0)",
       },
       redirect: "follow",
       signal: AbortSignal.timeout(10000),

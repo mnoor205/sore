@@ -74,10 +74,17 @@
     },
     "staging": {
       "name": "coachlane-email-staging",
+      "send_email": [
+        {
+          "name": "FULFILLMENT_EMAIL",
+          "allowed_sender_addresses": ["delivery@getsore.me"],
+        },
+      ],
       "vars": {
         "APP_MODE": "production",
         "APP_URL": "https://getsore.me",
         "MCP_URL": "https://mcp.getsore.me",
+        "EMAIL_FROM": "delivery@getsore.me",
       },
       "d1_databases": [
         {

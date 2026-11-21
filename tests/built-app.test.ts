@@ -167,7 +167,7 @@ it("serves the actual OpenNext build and its static assets in workerd", async ()
   expect(html).not.toContain("demo-store/demo-reset");
   const dashboard = await request("/dashboard");
   expect(dashboard.status).toBe(200);
-  expect(await dashboard.text()).toContain("coachlane");
+  expect(await dashboard.text()).toContain("sore");
 });
 it("protects creator APIs and returns truthful demo metrics without private public payloads", async () => {
   const unauth = await request("/api/workspace", undefined, "GET", "");

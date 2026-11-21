@@ -85,7 +85,7 @@ export default function AuthScreen({
     <div className="auth-page">
       <aside className="auth-art">
         <Link href="/" className="brand">
-          <span className="brand-icon">c</span>coachlane.
+          <span className="brand-icon">s</span>sore.
         </Link>
         <div>
           <span className="eyebrow">A HOME FOR WHAT YOU KNOW</span>
@@ -245,7 +245,7 @@ export default function AuthScreen({
             </p>
           )}
           <Link className="subtle-link" href="/">
-            Back to Coachlane
+            Back to Sore
           </Link>
         </div>
       </main>

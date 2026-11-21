@@ -18,10 +18,12 @@ export type AppEnv = {
   STRIPE_CONNECT_WEBHOOK_SECRET?: string;
   STRIPE_BILLING_WEBHOOK_SECRET?: string;
   STRIPE_RECURRING_PRICE_ID?: string;
-  STRIPE_LTD_PRICE_ID?: string;
+  STRIPE_LTD_PRODUCT_ID?: string;
   PLATFORM_FEE_BPS?: string;
   PLATFORM_TAX_ENABLED?: string;
   LTD_PRICE_CENTS?: string;
+  LTD_STEP_CENTS?: string;
+  LTD_STEP_EVERY?: string;
   LTD_LIMIT?: string;
   MAX_PRODUCTS?: string;
   MAX_UPLOAD_MB?: string;
@@ -32,6 +34,8 @@ export type AppEnv = {
   R2_BUCKET_NAME?: string;
   EMAIL_API_KEY?: string;
   EMAIL_FROM?: string;
+  /** Native Cloudflare send_email binding for buyer fulfillment (email Worker). */
+  FULFILLMENT_EMAIL?: CloudflareEnv["LOGIN_EMAIL"];
 };
 export async function getEnv(): Promise<AppEnv> {
   const { env } = await getCloudflareContext({ async: true });

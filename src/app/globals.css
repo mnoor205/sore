@@ -1861,6 +1861,12 @@ td > small {
   font-weight: 400;
   margin-top: 7px;
 }
+.founding-ladder {
+  margin: -4px 0 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent, currentColor);
+}
 .pricing-card > p {
   font-size: 12px;
   line-height: 1.8;

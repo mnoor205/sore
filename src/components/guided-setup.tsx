@@ -245,7 +245,7 @@ export default function GuidedSetup() {
     <div className="guided-setup">
       <header className="setup-header">
         <Link href="/" className="brand">
-          <span className="brand-icon">c</span>coachlane.
+          <span className="brand-icon">s</span>sore.
         </Link>
         <div className="actions">
           <span className="save-status" role="status">
@@ -361,7 +361,7 @@ export default function GuidedSetup() {
                   <label>
                     Store address
                     <div className="input-prefix">
-                      <span>coachlane /</span>
+                      <span>getsore.me /</span>
                       <input
                         required
                         maxLength={40}

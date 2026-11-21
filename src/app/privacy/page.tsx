@@ -3,7 +3,7 @@ export default function Page() {
   return (
     <main className="policy-page">
       <Link className="brand" href="/">
-        coachlane.
+        sore.
       </Link>
       <h1>Privacy notice</h1>
       <p>
@@ -30,7 +30,7 @@ export default function Page() {
         the operator must supply business identity, retention periods and
         jurisdiction-specific terms before launch.
       </p>
-      <Link href="/">Back to Coachlane</Link>
+      <Link href="/">Back to Sore</Link>
     </main>
   );
 }

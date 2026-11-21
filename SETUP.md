@@ -62,7 +62,7 @@ Wrangler `secret put` deploys changes. When deployment is not yet authorized, st
 
 ## 4. Private R2 uploads and delivery
 
-Create S3-compatible R2 credentials restricted to the chosen bucket. Set `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` on the app Worker. Replace the origin in `r2-cors.json` with the exact app HTTPS origin and apply it:
+Uploads work without S3 credentials: when they're absent, the browser PUTs to `/api/upload` with a five-minute, owner-bound, size-locked ticket and the Worker streams the file into the private `FILES` binding (fine for the 25 MB default). Direct-to-R2 uploads are optional for larger files. For those, create S3-compatible R2 credentials restricted to the chosen bucket. Set `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` on the app Worker. Replace the origin in `r2-cors.json` with the exact app HTTPS origin and apply it:
 
 ```sh
 npx wrangler r2 bucket cors set coachlane-private-production --file r2-cors.json
@@ -107,10 +107,12 @@ Product-specific coupon reservations are atomic and expire when verified Checkou
 
 The sandbox has no project founding price. Provisioning remains incomplete after tax setup was skipped. Do not invent an address, registration or tax classification. Keep `PLATFORM_TAX_ENABLED` unset/false. When the commercial setup is resumed, create platform Products and Prices independently of creator resources:
 
-- One-time USD founding lifetime price matching `LTD_PRICE_CENTS` (default 9900).
+- One founding lifetime **Product** (no fixed Price). Checkout charges it with inline `price_data`, because the founding offer is a ladder: `LTD_PRICE_CENTS` (9900) plus `LTD_STEP_CENTS` (1000) for every `LTD_STEP_EVERY` (5) completed founding purchases — $99 for buyers 1–5, $109 for 6–10, and so on. Completed purchases are paid lifetime billing sessions on non-demo stores; refunds don't rewind the ladder. This is the same count the homepage quote uses.
 - A recurring price only after choosing the commercial terms. No monthly amount is assumed.
 
-Set `STRIPE_LTD_PRICE_ID`, `STRIPE_RECURRING_PRICE_ID` and configurable `LTD_LIMIT`. The founding cap counts active lifetime entitlements and pending reserved sessions atomically. Quotas are snapshotted at checkout and retained on activation; changing engineering defaults does not reduce existing lifetime grants.
+Set `STRIPE_LTD_PRODUCT_ID`, `STRIPE_RECURRING_PRICE_ID` and configurable `LTD_LIMIT`. Each reservation stores the amount it was offered at (`billing_sessions.amount`, migration 0009); the billing webhook refuses to activate a lifetime grant unless Stripe's USD subtotal matches it. The founding cap counts active lifetime entitlements and unexpired pending reservations atomically.
+
+Staging (2026-11-20): the Sore sandbox used by `STRIPE_SECRET_KEY` (`acct_1UdkH5LKVkTyYf4F`) has product `prod_VfOPDFsW1KGqds`, default portal configuration `bpc_1Ue3cSLKVkTyYf4F5G6J4IRW`, and billing/connect webhooks `we_1Ue3cSLKVkTyYf4FBNDQSKJn` / `we_1Ue3cSLKVkTyYf4FprXqM1De` on API version `2026-11-18.endive`. The key and both signing secrets are installed on `coachlane-staging`. Quotas are snapshotted at checkout and retained on activation; changing engineering defaults does not reduce existing lifetime grants.
 
 Enable the Stripe hosted billing portal, invoice/payment-method updates and cancellation. The app's **Plan & billing → Manage billing** creates a portal session. Lifetime checkout requests a hosted invoice; Stripe Billing manages recurring invoices.
 
@@ -130,7 +132,7 @@ Creators handle product-sale tax obligations. Store-level automatic calculation 
 
 ## 8. Transactional email, Queues and outbox
 
-Resend is the implemented external provider adapter because no Cloudflare Email Service account access was available. No provider account has been created or emails sent. Before enabling it, verify the sending domain, SPF/DKIM and sender address and configure `EMAIL_API_KEY` and `EMAIL_FROM` on the email Worker.
+Hosted fulfillment uses Cloudflare Email Sending through the email Worker's native `FULFILLMENT_EMAIL` binding, restricted to `EMAIL_FROM` (`delivery@getsore.me` on staging, a bare address). If that binding is absent, the Resend adapter below is used instead. Real inbox delivery from `delivery@getsore.me` is not yet verified. Resend is the fallback provider adapter. No provider account has been created or emails sent. Before enabling it, verify the sending domain, SPF/DKIM and sender address and configure `EMAIL_API_KEY` and `EMAIL_FROM` on the email Worker.
 
 Deploy the email Worker with its Queue consumer, dead-letter queue, shared D1 and five-minute cron. The scanner submits due durable outbox records. Each consumer atomically obtains a lease, checks current order access, records attempts and retries with bounded exponential backoff. Explicit resends increment a delivery generation so provider idempotency does not suppress the resend. Provider acceptance is recorded as **sent**; inbox receipt/bounces are not claimed. Resend's idempotency window is finite, so an ambiguous external acceptance retried after that window may still duplicate an email. No irreversible distributed email operation can be made exactly-once solely with a D1 transaction.
 

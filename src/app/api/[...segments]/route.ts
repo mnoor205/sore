@@ -55,6 +55,7 @@ import { completeUpload, prepareUpload } from "@/lib/uploads";
 import {
   billingCheckout,
   connectPayments,
+  foundingOffer,
   refreshPayments,
 } from "@/lib/billing";
 import { verifyWebhook } from "@/lib/webhooks";
@@ -183,7 +184,6 @@ async function route(req: NextRequest, { params }: Context) {
     if (path === "download" && req.method === "GET")
       return await download(env, query.get("ticket") || "");
     if (path === "upload" && req.method === "PUT") {
-      if (!development(env)) throw new AppError("Not found", 404);
       const t = await verify<{
         storeId: string;
         assetId: string;
@@ -419,7 +419,7 @@ async function route(req: NextRequest, { params }: Context) {
         },
         mcpUrl: `${env.MCP_URL}/mcp`,
         feesBps: Number(env.PLATFORM_FEE_BPS || 0),
-        ltdPrice: Number(env.LTD_PRICE_CENTS || 9900),
+        founding: await foundingOffer(env),
         recurringConfigured: !!env.STRIPE_RECURRING_PRICE_ID,
         stripeConfigured: !!env.STRIPE_SECRET_KEY,
       });
@@ -696,7 +696,7 @@ async function route(req: NextRequest, { params }: Context) {
         headers: {
           "Content-Type": "application/json",
           "Content-Disposition":
-            'attachment; filename="coachlane-ai-context.json"',
+            'attachment; filename="sore-ai-context.json"',
           "Cache-Control": "no-store",
         },
       });

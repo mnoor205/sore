@@ -62,7 +62,14 @@ export async function prepareUpload(
     )
     .run();
   if (!result.meta.changes) throw new AppError("Storage limit reached");
-  if (development(env)) {
+  const directConfigured =
+    !!env.R2_ACCESS_KEY_ID &&
+    !!env.R2_SECRET_ACCESS_KEY &&
+    !!env.R2_ACCOUNT_ID &&
+    !!env.R2_BUCKET_NAME;
+  // Without bucket-scoped S3 credentials, the file streams through this Worker into
+  // the private R2 binding using a short-lived, owner-bound, size-locked ticket.
+  if (development(env) || !directConfigured) {
     const ticket = await sign(
       { assetId, storeId, size: data.size, type: data.type },
       env.DOWNLOAD_SECRET,
@@ -72,19 +79,12 @@ export async function prepareUpload(
       assetId,
       url: `${env.APP_URL}/api/upload?ticket=${ticket}`,
       headers: { "Content-Type": data.type },
-      mode: "development",
+      mode: development(env) ? "development" : "worker",
     };
   }
-  if (
-    !env.R2_ACCESS_KEY_ID ||
-    !env.R2_SECRET_ACCESS_KEY ||
-    !env.R2_ACCOUNT_ID ||
-    !env.R2_BUCKET_NAME
-  )
-    throw new AppError("Direct uploads are not configured", 503);
   const client = new AwsClient({
-    accessKeyId: env.R2_ACCESS_KEY_ID,
-    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+    accessKeyId: env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
     service: "s3",
     region: "auto",
   });

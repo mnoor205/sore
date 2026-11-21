@@ -11,7 +11,7 @@ export default async function Home() {
     <div className="landing">
       <nav className="landing-nav">
         <Link className="brand" href="/">
-          <span className="brand-icon">c</span>coachlane
+          <span className="brand-icon">s</span>sore
           <span className="wordmark-dot">.</span>
         </Link>
         <Link className="button light" href="/sign-in">

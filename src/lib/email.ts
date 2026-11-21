@@ -63,23 +63,39 @@ export async function deliverEmail(env: AppEnv, outboxId: string) {
       ]);
       return;
     }
-    if (!env.EMAIL_API_KEY || !env.EMAIL_FROM)
-      throw new Error("email_not_configured");
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.EMAIL_API_KEY}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": `fulfillment-${row.id}-${row.generation}`,
-      },
-      body: JSON.stringify({
-        from: env.EMAIL_FROM,
-        to: [payload.to],
-        subject: `Your resource: ${payload.title}`,
-        text: `Hi ${payload.name},\n\nYour resource is ready: ${payload.title}\n\nAccess your purchase: ${payload.url}\n\nKeep this private access link safe. Contact the creator for support.`,
-      }),
-    });
-    if (!response.ok) throw new Error(`email_provider_${response.status}`);
+    const subject = `Your resource: ${payload.title}`;
+    const text = `Hi ${payload.name},\n\nYour resource is ready: ${payload.title}\n\nAccess your purchase: ${payload.url}\n\nKeep this private access link safe. Contact the creator for support.`;
+    if (env.FULFILLMENT_EMAIL && env.EMAIL_FROM) {
+      // Cloudflare Email Sending on the verified getsore.me domain.
+      try {
+        await env.FULFILLMENT_EMAIL.send({
+          from: { email: env.EMAIL_FROM, name: "Sore" },
+          to: payload.to,
+          subject,
+          text,
+        });
+      } catch {
+        throw new Error("email_provider_cloudflare");
+      }
+    } else {
+      if (!env.EMAIL_API_KEY || !env.EMAIL_FROM)
+        throw new Error("email_not_configured");
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.EMAIL_API_KEY}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": `fulfillment-${row.id}-${row.generation}`,
+        },
+        body: JSON.stringify({
+          from: env.EMAIL_FROM,
+          to: [payload.to],
+          subject,
+          text,
+        }),
+      });
+      if (!response.ok) throw new Error(`email_provider_${response.status}`);
+    }
     await db.batch([
       db
         .update(outbox)
