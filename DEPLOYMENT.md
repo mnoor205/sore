@@ -5,6 +5,10 @@
 - MCP resource discovery: https://mcp.getsore.me/.well-known/oauth-protected-resource/mcp
 - Email Worker: `coachlane-email-staging`, with workers.dev disabled, a Queue consumer and five-minute cron.
 
+## Payments and founding price ladder release — November 20, 2026
+
+Merged the Stripe work into the redesign and deployed app version `84eb7944-b518-4716-a716-0a16eea88983` (previous: `137c7919-454c-4162-9eeb-ff3d09929c81`) from commit `36f6824`. The release adds the founding price ladder ($99, +$10 every 5 paid purchases), the creator Payments page at `/dashboard/payments` with Stripe Connect embedded components (`/dashboard/stripe` redirects there), country-aware Connect onboarding, and Worker uploads. Migration `0009_founding_price_ladder.sql` was already applied. The MCP Worker was not redeployed because its code is unchanged. The email Worker stays at `3ed6e0fe`. All 58 service tests and 13 bundled-app tests pass. Live checks: `/`, `/sign-in` and `/dashboard/payments` return 200, `/dashboard/stripe` returns 307 to Payments, and the workspace and account-session APIs return 401 when signed out. All six secret bindings are present. No real purchase or Connect onboarding has been run against this version.
+
 ## Landing page and internal UI release — November 20, 2026
 
 Deployed the Sore landing page and creator interface to the existing `coachlane-staging` app Worker at https://getsore.me. This release includes the responsive iPhone storefront examples, Claude-style strategy demonstration, rotating assistant block, backend lifetime-price display, selling walkthrough, and matching internal dashboard/setup/editor/sign-in styles.
