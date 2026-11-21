@@ -10,7 +10,12 @@ import {
   downloadLink,
   download,
 } from "../src/lib/access";
-import { getProduct, saveProduct } from "../src/lib/catalog";
+import { getStore, getProduct, saveProduct } from "../src/lib/catalog";
+import {
+  recordTraffic,
+  setAnalyticsSettings,
+  storefrontAnalytics,
+} from "../src/lib/storefront-analytics";
 import { salesSummary } from "../src/lib/reporting";
 import {
   createMcpServer,
@@ -59,6 +64,38 @@ export default {
       const b = (await req.json()) as Record<string, any>;
       let value: unknown;
       switch (path) {
+        case "/test/analytics": {
+          const store = await getStore(env, b.slug);
+          const points: AnalyticsEngineDataPoint[] = [];
+          const analyticsEnv = {
+            ...env,
+            ANALYTICS_DATASET: "test_storefront",
+            ANALYTICS_ACCOUNT_ID: "0".repeat(32),
+            ANALYTICS_READ_TOKEN: "test",
+            STOREFRONT_ANALYTICS: {
+              writeDataPoint(event?: AnalyticsEngineDataPoint) {
+                if (event) points.push(event);
+              },
+            },
+          };
+          if (b.action === "report")
+            value = await storefrontAnalytics(analyticsEnv, store, b.days);
+          else if (b.action === "settings")
+            value = await setAnalyticsSettings(env, store, b.input);
+          else
+            value = {
+              recorded: await recordTraffic(
+                analyticsEnv,
+                store,
+                b.kind,
+                new Headers(b.headers),
+                async () => b.ownerId,
+                async () => b.input,
+              ),
+              points,
+            };
+          break;
+        }
         case "/test/email-auth-start":
           value = await beginEmailLogin(env, b.returnTo);
           break;

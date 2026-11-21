@@ -14,6 +14,8 @@ Product pages support optional audience, included items, preview images/separate
 
 The initial workspace emphasizes setup and products. Reporting appears after publication and recorded activity; empty states never invent performance data.
 
+Creators can open **Analytics** for traffic trends, discovery sources, product pages and checkout activity. The page includes tracking preferences and a date-range export. See [DEPLOYMENT.md](DEPLOYMENT.md#storefront-analytics-setup) for Cloudflare Analytics Engine setup.
+
 ## Run locally
 
 Use Node 24 and npm. From this directory:

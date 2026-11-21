@@ -44,3 +44,7 @@ PLATFORM_TAX_ENABLED=false
 # AUTH_PROVIDER=email
 # OTP_FROM=login@getsore.me
 # Keep ACCESS_ISSUER fixed to preserve creator ownership.
+
+# App Worker only. The Analytics Engine SQL API requires Account Analytics Read.
+ANALYTICS_ACCOUNT_ID=
+ANALYTICS_READ_TOKEN=

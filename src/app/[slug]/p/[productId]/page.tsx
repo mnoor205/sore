@@ -56,6 +56,7 @@ export default async function Page({
         demo: !!store.demo,
         stylePreset: store.stylePreset,
       }}
+      trackingEnabled={!!store.trackingEnabled}
       products={[forPublicProduct(p)]}
       selectedId={p.id}
       preview={(await searchParams).preview === "1"}
