@@ -73,7 +73,14 @@
           "id": "3ebeb53038014259a26f9f8d205b1fa7",
         },
       ],
-      "workers_dev": true,
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "mcp.getsore.me",
+          "custom_domain": true,
+          "zone_name": "getsore.me",
+        },
+      ],
       "minify": true,
     },
   },

@@ -702,7 +702,8 @@ async function route(req: NextRequest, { params }: Context) {
       return new Response(JSON.stringify(report, null, 2), {
         headers: {
           "Content-Type": "application/json",
-          "Content-Disposition": 'attachment; filename="sore-ai-context.json"',
+          "Content-Disposition":
+            'attachment; filename="sore-ai-context.json"',
           "Cache-Control": "no-store",
         },
       });

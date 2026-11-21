@@ -299,7 +299,7 @@ export default function Storefront({
             )}
           </div>
           <Link className="powered-by" href="/">
-            made with <b>sore.</b>
+            made with <b>Sore.</b>
           </Link>
         </footer>
       </main>

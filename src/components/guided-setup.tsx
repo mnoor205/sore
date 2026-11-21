@@ -1,4 +1,5 @@
 "use client";
+import Brand from "./brand";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -244,9 +245,7 @@ export default function GuidedSetup() {
   return (
     <div className="guided-setup">
       <header className="setup-header">
-        <Link href="/" className="brand">
-          <span className="brand-icon">s</span>sore.
-        </Link>
+        <Brand />
         <div className="actions">
           <span className="save-status" role="status">
             {saving ? (
@@ -275,16 +274,11 @@ export default function GuidedSetup() {
         <aside className="setup-sidebar">
           <span className="eyebrow purple">A HOME FOR YOUR EXPERTISE</span>
           <h1>
-            From good work
+            Make it
             <br />
-            to a great first
-            <br />
-            impression.
+            yours.
           </h1>
-          <p>
-            Bring the resources you already have. We’ll help you give them a
-            home.
-          </p>
+          <p>A few details, your first product, and your own style.</p>
           <ol>
             {steps.map((item, i) => (
               <li
@@ -361,7 +355,7 @@ export default function GuidedSetup() {
                   <label>
                     Store address
                     <div className="input-prefix">
-                      <span>getsore.me /</span>
+                      <span>Sore /</span>
                       <input
                         required
                         maxLength={40}

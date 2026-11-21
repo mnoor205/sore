@@ -89,7 +89,7 @@ export default function OrderScreen({
   return (
     <div className="order-page">
       <Link className="brand" href="/">
-        <span className="brand-icon">s</span>sore.
+        <span className="brand-icon">s</span>Sore.
       </Link>
       <section className="order-card">
         {order?.isTest && (

@@ -48,7 +48,7 @@ npm run verify
 
 This type-checks, runs commerce/MCP services inside workerd with isolated D1/R2/KV and mocked external APIs, builds real Next.js with OpenNext, packages the actual application with Wrangler **dry run**, then tests HTTP routes of that built bundle in workerd. It does not deploy. `npm test` runs the service suite; `npm run test:app` requires the most recent `npm run build:worker && npm run bundle:check` output.
 
-The 49 service/runtime tests and 12 bundled-app HTTP tests cover the existing commerce flows plus saved onboarding, private populated previews, free publication without payments, optional sections/sample isolation, explicit draft-write consent, retry-safe creates, version conflicts, tenant boundaries, price confirmation and dashboard-only publication of revisions. A real maintained OAuth-provider flow is tested through registration, browser-bound consent, PKCE exchange, an authorized draft write, audience checks and revocation. External APIs are mocked; this is not proof of live Stripe or ChatGPT/Claude compatibility.
+The 49 service/runtime tests and 13 bundled-app HTTP tests cover the existing commerce flows plus saved onboarding, private populated previews, free publication without payments, optional sections/sample isolation, explicit draft-write consent, retry-safe creates, version conflicts, tenant boundaries, price confirmation and dashboard-only publication of revisions. A real maintained OAuth-provider flow is tested through registration, browser-bound consent, PKCE exchange, an authorized draft write, audience checks and revocation. External APIs are mocked; this is not proof of live Stripe or ChatGPT/Claude compatibility.
 
 ## Architecture
 
@@ -66,7 +66,7 @@ See [SETUP.md](SETUP.md) for exact activation and deployment steps and [IMPLEMEN
 
 ## Defaults and policy
 
-The provisional name is Sore. Engineering defaults are 50 products, 25 MB per upload, 500 MB storage and a seven-day failed-subscription-payment grace period. They are configurable, not researched requirements. A lifetime purchase snapshots its granted quotas so later defaults cannot reduce it. The founding offer starts at USD 99, has a configurable cap, and never converts automatically to a subscription. No recurring price is invented.
+The app is named Sore. Engineering defaults are 50 products, 25 MB per upload, 500 MB storage and a seven-day failed-subscription-payment grace period. They are configurable, not researched requirements. A lifetime purchase snapshots its granted quotas so later defaults cannot reduce it. The founding offer starts at USD 99, has a configurable cap, and never converts automatically to a subscription. No recurring price is invented.
 
 When a recurring plan lapses, new free and paid checkouts pause. Catalog management, exports and existing protected buyer access remain available. Cancel-at-period-end retains access through the paid period. A full lifetime-purchase refund revokes the lifetime entitlement. Refunding a recurring Stripe invoice does not itself cancel its subscription; subscription access follows Stripe's current subscription status. Product refunds are separate and a full refund revokes further protected resource access.
 

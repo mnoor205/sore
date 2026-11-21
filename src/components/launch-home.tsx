@@ -6,7 +6,7 @@ import {
   Eye,
   Copy,
   Check,
-  Sparkles,
+  Link2,
   ShieldCheck,
 } from "lucide-react";
 import type { Store } from "./store-form";
@@ -33,19 +33,17 @@ export default function LaunchHome({
           <span className="eyebrow purple">YOUR EXPERTISE, READY TO SHARE</span>
           <h2>
             {published
-              ? "A little link. Your work, all together."
-              : "Let’s turn what you know into a storefront."}
+              ? "Ready for your next sale."
+              : "Let’s build your storefront."}
           </h2>
           <p>
             {published
-              ? "Your storefront is ready for its first visitors. Keep refining the presentation, share your bio link, and let real activity tell the story."
-              : "Start with a resource you already have. Add your copy, choose an appearance, check the delivery, and publish when it feels ready."}
+              ? "Your products are live. Share your link and see what connects."
+              : "Add a download, make the page yours, and share it when you’re ready."}
           </p>
           <div className="actions">
             <Link className="button primary" href="/onboarding">
-              {published
-                ? "Review your storefront setup"
-                : "Continue guided setup"}
+              {published ? "Review setup" : "Continue setup"}
             </Link>
             <Link className="button outline" href="/dashboard/preview">
               <Eye size={16} />
@@ -59,22 +57,38 @@ export default function LaunchHome({
             )}
           </div>
         </div>
-        <div className="launch-art">
-          <span>✳</span>
-          <div>
-            <Badge tone={published ? "green" : "purple"}>
-              {published ? "Published storefront" : "Private working draft"}
-            </Badge>
-            <b>{store.name}</b>
-            <p>{live.length + drafts.length} resources with a home</p>
+        <div className="launch-store-preview">
+          <div className="launch-preview-profile">
+            <span>{store.name.slice(0, 1)}</span>
+            <div>
+              <strong>{store.name}</strong>
+              <small>getsore.me/{store.slug}</small>
+            </div>
           </div>
+          <div className="launch-preview-covers">
+            {products
+              .filter((p) => p.state !== "archived")
+              .slice(0, 3)
+              .map((p) => (
+                <div key={p.id}>
+                  {p.image ? (
+                    <img src={p.image} alt={p.title + " cover"} />
+                  ) : (
+                    <Package size={35} />
+                  )}
+                </div>
+              ))}
+          </div>
+          <Badge tone={published ? "green" : "purple"}>
+            {published ? "Published storefront" : "Private draft"}
+          </Badge>
         </div>
       </section>
       <div className="launch-section-heading">
-        <h2>Your products, taking shape</h2>
+        <h2>Your products</h2>
         <button className="button outline compact" onClick={() => onEdit(null)}>
           <Plus size={16} />
-          Add an existing product
+          Add product
         </button>
       </div>
       <div className="launch-products">
@@ -126,30 +140,28 @@ export default function LaunchHome({
           <ShieldCheck size={23} />
           <h3>Check the full experience</h3>
           <p>
-            Review the product page, check your protected deliverable, and
-            confirm payments for paid products. Free resources don’t need a
-            Stripe connection.
+            Preview your pages and test delivery before sharing. Free resources
+            don’t need Stripe.
           </p>
           <Link href="/onboarding" className="subtle-link">
             Open activation checklist
           </Link>
         </section>
         <section className="panel">
-          <Sparkles size={23} />
-          <h3>A second pair of eyes, if you want one.</h3>
+          <Link2 size={23} />
+          <h3>Make your next move with context.</h3>
           <p>
-            Use your own AI client to help draft your product page from existing
-            material. Every change stays private until you review and publish.
+            Connect your sales data to your AI assistant. Decide what to
+            promote, improve, or build next.
           </p>
           <Link href="/dashboard/connect-ai" className="subtle-link">
-            Explore draft assistance
+            Connect your AI
           </Link>
         </section>
       </div>
       <p className="launch-metrics-note">
-        Reporting will take its place here once the store has measured views,
-        free signups or confirmed purchases. Delivery rehearsals never count as
-        sales.
+        Sales and views appear here after recorded activity. Delivery tests
+        don’t count as sales.
       </p>
     </div>
   );

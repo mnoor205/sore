@@ -1,0 +1,167 @@
+{
+  "sourceCommit": "9fcca89829dd0d90cf79404af9b4c713ff31d33b",
+  "workerVersion": "16c74c26-9ceb-47ea-a58f-121ec16fef29",
+  "worker": "coachlane-staging",
+  "url": "https://getsore.me",
+  "at": "2026-11-21T03:51:33.081Z",
+  "passed": true,
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "asset": "/_next/static/chunks/19bxk2x6qcvqw.css",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/02vk2wat92l8_.css",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/310vm2bl3xxpt.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/1wnov70f88xjy.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/39_j1bdzreq0m.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/0c1ad7rcpjghx.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/turbopack-2u1d16houkiyo.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/3qfy96eoyh-ek.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/234hdtvdnjjr9.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/0cz1d0mv5g_q7.js",
+      "status": 200
+    },
+    {
+      "path": "/sign-in",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "asset": "/_next/static/chunks/3zt_16xndew4w.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/38os_wd9nrbf5.js",
+      "status": 200
+    },
+    {
+      "path": "/sign-up",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "path": "/privacy",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "path": "/terms",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "path": "/dashboard",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "asset": "/_next/static/chunks/0u0t5jywuu2rk.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/3avbgimi6wdu-.js",
+      "status": 200
+    },
+    {
+      "asset": "/_next/static/chunks/3gsxgxtb-xnzb.js",
+      "status": 200
+    },
+    {
+      "path": "/dashboard/products",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "path": "/dashboard/connect-ai",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "path": "/onboarding",
+      "status": 200,
+      "dark": true
+    },
+    {
+      "asset": "/_next/static/chunks/0fpza68d14je1.js",
+      "status": 200
+    },
+    {
+      "check": "new marketing sections and backend quote present",
+      "passed": true
+    },
+    {
+      "check": "landing and internal design CSS live",
+      "passed": true
+    },
+    {
+      "path": "/fonts/geist-latin.woff2",
+      "status": 200
+    },
+    {
+      "path": "/ai/claude.svg",
+      "status": 200
+    },
+    {
+      "path": "/ai/chatgpt.svg",
+      "status": 200
+    },
+    {
+      "path": "/art/business-reset.svg",
+      "status": 200
+    },
+    {
+      "host": "www.getsore.me",
+      "status": 308
+    },
+    {
+      "host": "coachlane.getsore.me",
+      "status": 308
+    },
+    {
+      "path": "/api/workspace",
+      "status": 401
+    },
+    {
+      "path": "/api/dev/session",
+      "status": 404
+    },
+    {
+      "path": "MCP discovery",
+      "status": 200
+    },
+    {
+      "path": "/mcp",
+      "status": 401
+    }
+  ]
+}

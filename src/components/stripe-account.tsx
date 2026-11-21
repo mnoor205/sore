@@ -116,11 +116,11 @@ export default function StripeAccount({
             appearance: {
               overlays: "dialog",
               variables: {
-                colorPrimary: value("--brand-pink", "#ec008c"),
-                colorBackground: value("--bg", "#fffafb"),
-                colorText: value("--ink", "#252531"),
-                colorSecondaryText: value("--muted", "#777684"),
-                colorBorder: value("--line", "#f1e4ea"),
+                colorPrimary: value("--purple", "#ff83bd"),
+                colorBackground: value("--surface", "#0a0a0a"),
+                colorText: value("--ink", "#ededed"),
+                colorSecondaryText: value("--muted", "#a1a1a1"),
+                colorBorder: value("--line", "#2a2a2a"),
                 fontFamily: value("--font", "system-ui, sans-serif"),
                 borderRadius: "12px",
               },

@@ -4,6 +4,14 @@ initOpenNextCloudflareForDev();
 const config: NextConfig = {
   images: { unoptimized: true },
   poweredByHeader: false,
+  async redirects() {
+    return ["www.getsore.me", "coachlane.getsore.me"].map((host) => ({
+      source: "/:path*",
+      has: [{ type: "host" as const, value: host }],
+      destination: "https://getsore.me/:path*",
+      permanent: true,
+    }));
+  },
   async headers() {
     return [
       {

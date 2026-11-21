@@ -1,4 +1,5 @@
 "use client";
+import Brand from "./brand";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,7 +12,6 @@ import {
   Ticket,
   Settings,
   CreditCard,
-  Sparkles,
   Plus,
   ExternalLink,
   Copy,
@@ -128,22 +128,21 @@ const navigation = [
   { id: "discounts", name: "Discounts", icon: Ticket },
 ];
 const settings = [
-  { id: "connect-ai", name: "Connect your AI", icon: Sparkles },
+  { id: "connect-ai", name: "AI connections", icon: Link2 },
   { id: "billing", name: "Plan & billing", icon: CreditCard },
   { id: "settings", name: "Settings", icon: Settings },
 ];
 const descriptions: Record<string, string> = {
-  overview: "Bring your products together. Make them ready to share.",
-  products: "Your expertise, packaged and ready to share.",
-  storefront: "A home for your ideas. Make it feel like you.",
-  customers: "The people connecting with your work.",
-  orders: "Every purchase, every resource, in one place.",
-  discounts: "A little encouragement for the right moment.",
-  "connect-ai":
-    "Bring your store into the conversations you’re already having.",
-  payments: "Your sales, payouts and Stripe account, all in one place.",
-  billing: "A simple plan for what comes next.",
-  settings: "The details that keep your store running.",
+  overview: "Your products, sales, and next steps.",
+  products: "Manage what you sell.",
+  storefront: "Your profile, your style, your bio link.",
+  customers: "Everyone who bought or downloaded from you.",
+  orders: "Payments and delivery, in one place.",
+  discounts: "Create an offer for your next promotion.",
+  "connect-ai": "Give your assistant the context behind your store.",
+  payments: "Sales, payouts, and your Stripe account.",
+  billing: "Your plan and payment details.",
+  settings: "Preferences and store details.",
 };
 export default function Dashboard({ section }: { section: string }) {
   const router = useRouter();
@@ -249,9 +248,7 @@ export default function Dashboard({ section }: { section: string }) {
   if (!w)
     return (
       <div className="initial-loading">
-        <Link href="/" className="brand">
-          <span className="brand-icon">s</span>sore.
-        </Link>
+        <Brand />
         {error ? (
           <div className="error-box">
             {error}
@@ -271,7 +268,7 @@ export default function Dashboard({ section }: { section: string }) {
           w.summary.freeSignups ||
           w.performance.products.some((p) => p.views)
           ? "Your store, at a glance."
-          : "Your storefront starts here."
+          : "Your store."
         : section === "storefront"
           ? "My storefront"
           : section === "billing"
@@ -303,6 +300,8 @@ export default function Dashboard({ section }: { section: string }) {
       },
     ],
     complete = tasks.filter((t) => t.done).length;
+  const productOrders = (id: string) =>
+    w.performance.products.find((p) => p.id === id)?.paidOrders || 0;
   const filtered = w.products.filter(
     (p) =>
       (tab === "all" ? p.state !== "archived" : p.state === tab) &&
@@ -332,11 +331,11 @@ export default function Dashboard({ section }: { section: string }) {
   );
   return (
     <div className="app-shell">
-      <aside className={"sidebar " + (menu ? "sidebar-open" : "")}>
-        <Link className="brand" href="/dashboard">
-          <span className="brand-icon">s</span>sore
-          <span className="wordmark-dot">.</span>
-        </Link>
+      <aside
+        id="workspace-navigation"
+        className={"sidebar " + (menu ? "sidebar-open" : "")}
+      >
+        <Brand href="/dashboard" />
         <button
           className="workspace-switch"
           onClick={() => router.push("/dashboard/storefront")}
@@ -355,12 +354,13 @@ export default function Dashboard({ section }: { section: string }) {
           <ChevronDown size={15} />
         </button>
         <span className="nav-label">YOUR WORKSPACE</span>
-        <nav>
+        <nav aria-label="Workspace">
           {navigation.map((n) => (
             <Link
               key={n.id}
               href={"/dashboard" + (n.id === "overview" ? "" : "/" + n.id)}
               className={section === n.id ? "active" : ""}
+              aria-current={section === n.id ? "page" : undefined}
             >
               <n.icon size={19} />
               {n.name}
@@ -379,25 +379,22 @@ export default function Dashboard({ section }: { section: string }) {
               key={n.id}
               href={"/dashboard/" + n.id}
               className={section === n.id ? "active" : ""}
+              aria-current={section === n.id ? "page" : undefined}
             >
               <n.icon size={19} />
               {n.name}
-              {n.id === "connect-ai" && <span className="new-badge">NEW</span>}
             </Link>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-tip">
-            <span>✳</span>
-            <b>
-              A small link.
-              <br />
-              Your next big thing.
-            </b>
-            <a href="/dashboard/preview" target="_blank" rel="noreferrer">
-              Visit your storefront <ExternalLink size={13} />
-            </a>
-          </div>
+          <a
+            className="sidebar-store-link"
+            href="/dashboard/preview"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ExternalLink size={16} /> View storefront
+          </a>
           <button
             className="profile-bottom"
             onClick={() =>
@@ -434,7 +431,9 @@ export default function Dashboard({ section }: { section: string }) {
           <div className="breadcrumb">
             <button
               className="icon-button mobile-menu"
-              aria-label="Open navigation"
+              aria-label={menu ? "Close navigation" : "Open navigation"}
+              aria-expanded={menu}
+              aria-controls="workspace-navigation"
               onClick={() => setMenu(!menu)}
             >
               <Menu size={22} />
@@ -464,7 +463,7 @@ export default function Dashboard({ section }: { section: string }) {
           <div className="page-heading">
             <div>
               {section === "overview" && (
-                <div className="greeting">MAKE SPACE FOR WHAT’S NEXT</div>
+                <div className="greeting">YOUR WORKSPACE</div>
               )}
               <h1>{title}</h1>
               <p>{descriptions[section]}</p>
@@ -539,11 +538,11 @@ export default function Dashboard({ section }: { section: string }) {
                     <Link2 size={18} />
                   </span>
                   <span>
-                    Your storefront is ready for a little attention.
+                    Your storefront link
                     <small>
                       {typeof window !== "undefined"
                         ? window.location.host
-                        : "sore"}
+                        : "Sore"}
                       /{s.slug}
                     </small>
                   </span>
@@ -758,31 +757,37 @@ export default function Dashboard({ section }: { section: string }) {
                       </Empty>
                     )}
                   </section>
-                  <section className="ai-card">
-                    <div className="ai-card-top">
-                      <span className="ai-symbol">✳</span>
-                      <Badge tone="dark">YOUR STORE, IN CONTEXT</Badge>
+                  <section className="workspace-ai">
+                    <div className="workspace-ai-logos">
+                      <img
+                        src="/ai/claude.svg"
+                        alt="Claude"
+                        width={27}
+                        height={27}
+                      />
+                      <img
+                        src="/ai/chatgpt.svg"
+                        alt="ChatGPT"
+                        width={27}
+                        height={27}
+                      />
                     </div>
+                    <span className="eyebrow">BUILT FOR THE AI ERA</span>
                     <h2>
-                      Good questions.
+                      Your sales.
                       <br />
-                      Your own store data.
+                      Your next move.
                     </h2>
                     <p>
-                      Let your AI see the bigger picture.
-                      <br />
-                      Connect your catalog and measured
-                      <br />
-                      performance. Optionally approve private draft saving.
+                      Ask your assistant what to promote, improve, or build next
+                      using your store’s data.
                     </p>
                     <Link
                       href="/dashboard/connect-ai"
-                      className="button ai-button"
+                      className="button outline"
                     >
-                      <Sparkles size={16} />
                       Connect your AI
                     </Link>
-                    <span className="ai-card-art">✳</span>
                   </section>
                 </div>
                 <div className="workspace-footnote">
@@ -807,6 +812,7 @@ export default function Dashboard({ section }: { section: string }) {
                   ].map(([key, label]) => (
                     <button
                       className={tab === key ? "active" : ""}
+                      aria-pressed={tab === key}
                       onClick={() => setTab(key)}
                       key={key}
                     >
@@ -826,7 +832,8 @@ export default function Dashboard({ section }: { section: string }) {
                 <div className="search-input">
                   <Search size={17} />
                   <input
-                    placeholder="Find a product…"
+                    aria-label="Search products"
+                    placeholder="Search products…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -848,35 +855,33 @@ export default function Dashboard({ section }: { section: string }) {
                           {p.title}
                         </div>
                       )}
-                      <span className="cover-badge">
+                    </button>
+                    <div className="catalog-details">
+                      <div className="catalog-labels">
+                        <span className="micro-label">
+                          {p.kind === "link"
+                            ? "EXTERNAL LINK"
+                            : p.deliveryType === "file"
+                              ? "DIGITAL DOWNLOAD"
+                              : "RESOURCE LINK"}
+                        </span>
                         <Badge
                           tone={p.state === "published" ? "green" : "gray"}
                         >
                           {p.state}
                         </Badge>
-                      </span>
-                    </button>
-                    <div className="catalog-details">
-                      <span className="micro-label">
-                        {p.kind === "link"
-                          ? "EXTERNAL LINK"
-                          : p.deliveryType === "file"
-                            ? "DIGITAL DOWNLOAD"
-                            : "RESOURCE LINK"}
-                      </span>
+                      </div>
                       <h3>{p.title}</h3>
-                      <p>
-                        {p.description ||
-                          "A new resource, ready for your words."}
-                      </p>
+
                       <div className="catalog-price">
                         <strong>
                           {p.price ? money(p.price, s.currency) : "Free"}
                         </strong>
                         <span>
-                          {w.performance.products.find((x) => x.id === p.id)
-                            ?.paidOrders || 0}{" "}
-                          paid orders
+                          {productOrders(p.id)}{" "}
+                          {productOrders(p.id) === 1
+                            ? "paid order"
+                            : "paid orders"}
                         </span>
                       </div>
                       <div className="catalog-actions">
@@ -956,12 +961,8 @@ export default function Dashboard({ section }: { section: string }) {
                   <span>
                     <Plus size={25} />
                   </span>
-                  <b>What’s your next idea?</b>
-                  <p>
-                    Add a workbook, template,
-                    <br />
-                    or a helpful little resource.
-                  </p>
+                  <b>Add another product</b>
+
                   <small>Add product</small>
                 </button>
               </div>
@@ -1244,15 +1245,14 @@ export default function Dashboard({ section }: { section: string }) {
               <div>
                 <section className="panel integration-panel">
                   <div className="integration-icon">
-                    <Sparkles size={25} />
+                    <Link2 size={25} />
                   </div>
-                  <h2>Your store. Your AI. More context.</h2>
+                  <h2>Your store, in your assistant.</h2>
                   <p>
-                    Connect a compatible AI client to draft product copy from
-                    your material, then review it before publishing. You can
-                    also share your catalog and measured store performance. Your
-                    AI provides the reasoning. Sore provides the authorized
-                    context.
+                    Connect your store once. Ask your assistant which products
+                    to promote, where sales stall, or what to build next. It can
+                    use your catalog and measured sales, and save private drafts
+                    with your permission.
                   </p>
                   <div className="permission-grid">
                     <span>
@@ -1286,24 +1286,29 @@ export default function Dashboard({ section }: { section: string }) {
                     </div>
                   </label>
                   <div className="notice">
-                    <b>
-                      {w.mode === "development"
-                        ? "Local endpoint · separate MCP worker required"
-                        : "Remote endpoint · OAuth required · optional draft-write scope"}
-                    </b>
+                    <b>Add Sore to your assistant</b>
                     <p>
-                      Run the MCP worker, then add this URL as a remote
-                      Streamable HTTP connector in your client. Sign in to Sore
-                      and approve <code>store:read</code>. To save drafts, also
-                      request <code>products:draft:write</code> and explicitly
-                      check its consent box. Draft access cannot publish,
-                      delete, or change live prices. Production requires HTTPS.
+                      Add the endpoint in your assistant’s MCP settings, sign in
+                      to Sore, and approve access.
+                      {w.mode === "development"
+                        ? " Start the local MCP worker first."
+                        : ""}
                     </p>
                   </div>
+                  <details className="connection-permissions">
+                    <summary>Connection permissions</summary>
+                    <p>
+                      <code>store:read</code> gives access to your catalog and
+                      aggregate reporting. Optional{" "}
+                      <code>products:draft:write</code> needs separate consent
+                      and can only save private drafts. It cannot publish,
+                      delete, or change live prices. Remote connections require
+                      HTTPS.
+                    </p>
+                  </details>
                   <p className="fine-print">
-                    Real-client compatibility: ChatGPT and Claude are untested.
-                    SDK transport and OAuth verification results are recorded in
-                    the implementation report.
+                    Works with assistants that support remote MCP. Availability
+                    depends on your assistant and plan.
                   </p>
                 </section>
                 <section className="panel">
@@ -1316,7 +1321,7 @@ export default function Dashboard({ section }: { section: string }) {
                       {rows.map((r) => (
                         <div key={r.id}>
                           <span className="icon-square lavender">
-                            <Sparkles size={18} />
+                            <Link2 size={18} />
                           </span>
                           <span>
                             <b>{r.name}</b>
@@ -1365,12 +1370,10 @@ export default function Dashboard({ section }: { section: string }) {
                   </span>
                   <h3>A little inspiration.</h3>
                   {[
-                    "Use this workbook and audience description to draft my product page. Save it as a draft for me to review.",
-                    "Review my catalog for unclear descriptions and missing information. Separate observations from suggestions.",
-                    "Summarize my sales for the last 30 days.",
-                    "Which products received views but few purchases?",
-                    "Review my product descriptions for my stated audience.",
-                    "Suggest an experiment, distinguishing observations from assumptions.",
+                    "Which product should I promote next? Compare my Sore sales and measured views.",
+                    "Which products get visits but few purchases? Suggest one experiment to test.",
+                    "Based on my paid orders and free downloads, what should I build next?",
+                    "Compare my product descriptions with my audience. Save improvements as private drafts.",
                   ].map((p) => (
                     <button key={p} onClick={() => copy(p)}>
                       <span>“{p}”</span>
@@ -1565,8 +1568,7 @@ export default function Dashboard({ section }: { section: string }) {
                       : "Recurring price not configured"}
                   </button>
                   <small>
-                    Limits shown here are engineering assumptions, not
-                    researched requirements.
+                    Your plan’s limits are confirmed before purchase.
                   </small>
                 </section>
               </div>

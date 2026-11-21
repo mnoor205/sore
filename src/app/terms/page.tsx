@@ -3,7 +3,7 @@ export default function Page() {
   return (
     <main className="policy-page">
       <Link className="brand" href="/">
-        sore.
+        Sore.
       </Link>
       <h1>Resource terms</h1>
       <p>
