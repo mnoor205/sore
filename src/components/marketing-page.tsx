@@ -1,3 +1,4 @@
+import { LifetimeBuy } from "./lifetime-checkout";
 import Link from "next/link";
 import { Check, Link2, Download, FileText } from "lucide-react";
 import type { FoundingOffer } from "@/lib/founding-offer";
@@ -12,15 +13,6 @@ function Wordmark() {
     <Link href="/" className="sf-wordmark" aria-label="Sore home">
       sore<span>.</span>
     </Link>
-  );
-}
-function OfferLink({ price }: { price: number | undefined }) {
-  return (
-    <a className="sf-button sf-primary" href="#lifetime">
-      {price === undefined
-        ? "Explore lifetime access"
-        : `Get lifetime access — $${price}`}
-    </a>
   );
 }
 export default function MarketingPage({
@@ -51,7 +43,7 @@ export default function MarketingPage({
     ],
     [
       "Any limits or separate costs?",
-      `${offer.quotas.products} products, ${offer.quotas.storageMB} MB storage, ${offer.quotas.uploadMB} MB per file. AI plans, Stripe fees, and applicable taxes are separate. The platform transaction fee is currently 0%. Final purchase and refund terms will be confirmed before checkout opens.`,
+      `${offer.quotas.products} products, ${offer.quotas.storageMB} MB storage, ${offer.quotas.uploadMB} MB per file. AI plans, Stripe fees, and applicable taxes are separate. The platform transaction fee is currently 0%.`,
     ],
     [
       "Can you help me get set up?",
@@ -59,7 +51,7 @@ export default function MarketingPage({
     ],
     [
       "What’s still being activated?",
-      "Paid checkout, direct uploads, and delivery email are being activated. You can start setting up your store now.",
+      "Storefront payments, direct uploads, and delivery email are being activated. You can start setting up your store now.",
     ],
   ];
   return (
@@ -79,7 +71,7 @@ export default function MarketingPage({
             <Link href="/sign-in" className="sf-login">
               Log in
             </Link>
-            <OfferLink price={price} />
+            <LifetimeBuy price={price} available={offer.checkoutAvailable} />
           </div>
         </div>
       </header>
@@ -96,7 +88,7 @@ export default function MarketingPage({
             Sell workbooks, templates, and downloads from one link in your bio.
           </p>
           <div className="sf-hero-actions">
-            <OfferLink price={price} />
+            <LifetimeBuy price={price} available={offer.checkoutAvailable} />
             <a className="sf-text-link" href="#storefront">
               See the storefronts
             </a>
@@ -176,12 +168,12 @@ export default function MarketingPage({
               <span>USD · one time</span>
             </div>
             <FoundingPriceChange quote={q} />
-            <button className="sf-button sf-primary" disabled>
-              {price === undefined
-                ? "Lifetime pricing unavailable"
-                : `Get lifetime access — $${price}`}
-            </button>
-            <p className="sf-checkout-note">Checkout is not open yet.</p>
+            <LifetimeBuy price={price} available={offer.checkoutAvailable} />
+            {offer.sandbox && offer.checkoutAvailable && (
+              <p className="sf-checkout-note">
+                Sandbox checkout uses test payments.
+              </p>
+            )}
             <Link href="/sign-up" className="sf-text-link">
               Start setting up your store
             </Link>

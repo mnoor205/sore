@@ -56,7 +56,11 @@ const steps = [
   { title: "See it come together", detail: "Review your real storefront" },
   { title: "Ready for the world", detail: "Check delivery and publish" },
 ];
-export default function GuidedSetup() {
+export default function GuidedSetup({
+  lifetimeCheckout = false,
+}: {
+  lifetimeCheckout?: boolean;
+}) {
   const [state, setState] = useState<Setup | null>(null),
     [content, setContent] = useState<SetupContent>(
       setupContentSchema.parse({}),
@@ -91,8 +95,7 @@ export default function GuidedSetup() {
       .catch((e) => {
         if (e.message.includes("sign in") || e.message.includes("Sign in"))
           window.location.href =
-            "/sign-in?redirect_url=" +
-            encodeURIComponent(window.location.origin + "/onboarding");
+            "/sign-in?redirect_url=" + encodeURIComponent(window.location.href);
         else setError(e.message);
       });
   }, [accept]);
@@ -173,6 +176,10 @@ export default function GuidedSetup() {
     try {
       await persist(content, step);
       const s = await api<Setup>("setup/step", { step });
+      if (lifetimeCheckout && s.store) {
+        window.location.reload();
+        return;
+      }
       accept(s);
       if (step === 5) setTest(null);
     } catch (e) {
@@ -307,7 +314,11 @@ export default function GuidedSetup() {
           <div className="setup-step-heading">
             <span className="eyebrow purple">STEP {step} OF 5</span>
             <h2>{current.title}</h2>
-            <p>{current.detail}. Your progress stays with your account.</p>
+            <p>
+              {lifetimeCheckout
+                ? "Create your store profile to attach lifetime access and continue to Stripe Checkout."
+                : current.detail + ". Your progress stays with your account."}
+            </p>
           </div>
           {error && (
             <div role="alert" className="error-box">
@@ -885,7 +896,9 @@ export default function GuidedSetup() {
                   ? "Publish my storefront"
                   : step === 4
                     ? "Continue to activation"
-                    : "Save & continue"}
+                    : lifetimeCheckout
+                      ? "Save & continue to checkout"
+                      : "Save & continue"}
               </button>
             ) : (
               <Link className="button primary" href="/dashboard">
