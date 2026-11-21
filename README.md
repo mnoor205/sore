@@ -46,7 +46,7 @@ npm run verify
 
 This type-checks, runs commerce/MCP services inside workerd with isolated D1/R2/KV and mocked external APIs, builds real Next.js with OpenNext, packages the actual application with Wrangler **dry run**, then tests HTTP routes of that built bundle in workerd. It does not deploy. `npm test` runs the service suite; `npm run test:app` requires the most recent `npm run build:worker && npm run bundle:check` output.
 
-The 49 service/runtime tests and 12 bundled-app HTTP tests cover the existing commerce flows plus saved onboarding, private populated previews, free publication without payments, optional sections/sample isolation, explicit draft-write consent, retry-safe creates, version conflicts, tenant boundaries, price confirmation and dashboard-only publication of revisions. A real maintained OAuth-provider flow is tested through registration, browser-bound consent, PKCE exchange, an authorized draft write, audience checks and revocation. External APIs are mocked; this is not proof of live Stripe or ChatGPT/Claude compatibility.
+The 49 service/runtime tests and 13 bundled-app HTTP tests cover the existing commerce flows plus saved onboarding, private populated previews, free publication without payments, optional sections/sample isolation, explicit draft-write consent, retry-safe creates, version conflicts, tenant boundaries, price confirmation and dashboard-only publication of revisions. A real maintained OAuth-provider flow is tested through registration, browser-bound consent, PKCE exchange, an authorized draft write, audience checks and revocation. External APIs are mocked; this is not proof of live Stripe or ChatGPT/Claude compatibility.
 
 ## Architecture
 

@@ -7,11 +7,13 @@
 
 ## Landing page and internal UI release — November 20, 2026
 
-The Sore landing page and creator interface have passed release validation and are prepared for deployment to the existing `coachlane-staging` app Worker at `getsore.me`. This release includes the responsive iPhone storefront examples, Claude-style strategy demonstration, rotating assistant block, backend lifetime-price display, selling walkthrough, and matching internal dashboard/setup/editor/sign-in styles.
+Deployed the Sore landing page and creator interface to the existing `coachlane-staging` app Worker at https://getsore.me. This release includes the responsive iPhone storefront examples, Claude-style strategy demonstration, rotating assistant block, backend lifetime-price display, selling walkthrough, and matching internal dashboard/setup/editor/sign-in styles.
 
 All 62 tests pass, with TypeScript, the staging Next.js/OpenNext production build, staging Wrangler dry run, and 13 bundled-app tests against the deployment artifact. Internal UI checks cover 16 views at four widths plus filters, editor keyboard behavior, navigation, and setup selections. No migrations are required.
 
-The pre-release app version is `38ab0ea0-eb1a-4f46-b0d8-98bf7966632a`. Remote signing/payment secrets will be preserved. The MCP Worker remains `b1537c3b-8715-4595-97e7-bf6746a7c975`, and the independently updated email Worker remains `3ed6e0fe-d767-40cd-8c98-65006b1dd592`; neither companion Worker is being replaced by this web UI release.
+Release code commit: `9fcca89829dd0d90cf79404af9b4c713ff31d33b`. App version: `16c74c26-9ceb-47ea-a58f-121ec16fef29`, deployed at 100%. The previous app version was `38ab0ea0-eb1a-4f46-b0d8-98bf7966632a`. All six existing signing/payment secret bindings were verified after deployment. The MCP Worker remains `b1537c3b-8715-4595-97e7-bf6746a7c975`, and the independently updated email Worker remains `3ed6e0fe-d767-40cd-8c98-65006b1dd592`; neither companion Worker was replaced by this web UI release.
+
+All 37 live checks passed: current landing-page sections and quote, shared internal styles, dashboard/onboarding/public route assets, fonts/logos, canonical redirects, protected workspace API, disabled hosted demo login, and MCP discovery/authentication. Domain mappings and D1/R2/Queue/login-email bindings were preserved. No fresh OTP, real payment, or fulfillment email was initiated for this release. The screenshots and standalone previews under `design/` remain isolated design artifacts; they are not deployed public assets.
 
 ## Pitch-black responsive theme release — November 20, 2026
 
@@ -27,9 +29,9 @@ The existing project resources and signing secrets were retained. Cloudflare res
 
 | Worker | Current version ID |
 | --- | --- |
-| coachlane-staging | 137c7919-454c-4162-9eeb-ff3d09929c81 |
+| coachlane-staging | 16c74c26-9ceb-47ea-a58f-121ec16fef29 |
 | coachlane-mcp-staging | b1537c3b-8715-4595-97e7-bf6746a7c975 |
-| coachlane-email-staging | 9a97896d-c3e6-4a1a-b7c3-bc9425fd579d |
+| coachlane-email-staging | 3ed6e0fe-d767-40cd-8c98-65006b1dd592 |
 
 This release uses authenticated Wrangler deployment with native Workers Assets. Rebuild with `npm run build:worker -- --env staging`, then deploy with `npx wrangler deploy --env staging --autoconfig=false --upload-source-maps=false`. Deploy the companion configs with the same environment. The embedded-assets packaging described below records the previous connector-only deployment path.
 

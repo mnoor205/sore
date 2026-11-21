@@ -19,8 +19,8 @@ Validation: all 61 service and bundled-app tests pass, along with TypeScript, th
 
 Live release: app version `137c7919-454c-4162-9eeb-ff3d09929c81`, MCP version `b1537c3b-8715-4595-97e7-bf6746a7c975`. Twenty live HTTP checks passed for the public pages, assets, redirects, and authentication boundaries. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
-## Local internal UI revision — November 20, 2026
+## Deployed internal UI revision — November 20, 2026
 
 The internal workspace now matches the revised landing page with self-hosted Geist, the lowercase `sore.` wordmark, deeper gradient pill actions with white labels, flat metrics and settings sections, and product rows with visible covers. The change covers the dashboard, product editor, guided setup, and sign-in. Styles are scoped in `src/app/internal.css`; public storefront presets retain their existing presentation.
 
-This revision is local, not part of the live release recorded above. See `design/INTERNAL_UI.md` for validation and preview details.
+This revision is deployed at https://getsore.me as app version `16c74c26-9ceb-47ea-a58f-121ec16fef29`. The preceding release details above remain as history. All 62 tests and 37 live release checks pass. See `design/INTERNAL_UI.md` for validation and preview details.

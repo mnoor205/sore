@@ -1,6 +1,6 @@
 # Sore landing page — design and launch notes
 
-This is the new responsive homepage implementation in the existing Next.js app. The live site has not been replaced by this design revision. `landing-preview.html` is a standalone, responsive design preview; desktop and mobile PNGs are provided alongside it.
+This is the new responsive homepage implementation in the existing Next.js app. The landing page and internal UI are deployed at https://getsore.me. `landing-preview.html` is a standalone, responsive design preview; desktop and mobile PNGs are provided alongside it.
 
 ## Confirmed content
 
@@ -37,6 +37,6 @@ Pricing urgency comes from verified purchases left before the next $10 increase.
 
 ## Validation
 
-49 service tests and 13 bundled-app tests pass (62 total), with TypeScript, Next.js/OpenNext production build, and Wrangler dry-run packaging. Fresh preview checks at 320, 390, 768, and 1440px find no document overflow; all three phones remain within the viewport and all rendered images load. The cube has four persistent faces and its parent rotates; visible playback controls and quota tiles are absent. All strategy example selectors work. Desktop/mobile preview renders show no console errors. These changes are local and have not been deployed.
+49 service tests and 13 bundled-app tests pass (62 total), with TypeScript, Next.js/OpenNext production build, and Wrangler dry-run packaging. Fresh preview checks at 320, 390, 768, and 1440px find no document overflow; all three phones remain within the viewport and all rendered images load. The cube has four persistent faces and its parent rotates; visible playback controls and quota tiles are absent. All strategy example selectors work. Desktop/mobile preview renders show no console errors. This revision is deployed at https://getsore.me as app version `16c74c26-9ceb-47ea-a58f-121ec16fef29`; 37 live checks pass.
 
 The selling walkthrough now sits before AI: add a product, share one bio link, and deliver the download. Open illustrations show a sample workbook upload, social-profile link, and customer download. Desktop uses three columns; mobile uses compact visual/text rows. The flow is illustrative and identifies pending checkout activation.

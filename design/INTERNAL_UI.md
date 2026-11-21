@@ -16,4 +16,4 @@ Dashboard descriptions and setup copy are shorter. The AI connection screen emph
 
 TypeScript, production Next.js/OpenNext build, Worker dry-run packaging, 49 service tests, and 13 built-app tests pass. Preview layout checks cover all 16 internal views at 320, 390, 820, and 1440 pixels (64 combinations), with no document overflow or broken rendered images. Recorded interaction checks cover product filtering/search, editor opening and retained values, keyboard focus trapping, Escape and focus restoration, mobile navigation, endpoint copy, permission disclosure, appearance selection, and setup navigation.
 
-This revision is local and has not been deployed. Payment activation, stepped checkout pricing, and delivery activation remain separate launch work.
+This revision is deployed at https://getsore.me as app version `16c74c26-9ceb-47ea-a58f-121ec16fef29`. All 37 live checks passed. The standalone preview stays isolated and uses no live creator data. Stepped checkout enforcement and end-to-end commerce activation remain separate launch work.
