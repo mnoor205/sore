@@ -1,0 +1,121 @@
+[
+  {
+    "name": "products",
+    "width": 390,
+    "contentHeight": 918,
+    "capturedHeight": 918,
+    "consoleMessages": [
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"initial product rows\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"draft filter updates products\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"product search finds one result\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"editor opens\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"editor fields retain product\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"dialog traps keyboard focus\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"escape closes editor\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"focus returns to product\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"mobile navigation opens\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"navigation scrim closes menu\",\"pass\":true}"
+      }
+    ],
+    "missingImages": [
+      "/art/business-reset.svg",
+      "/art/clarity-guide.svg",
+      "/art/pricing-playbook.svg",
+      "/ai/chatgpt.svg",
+      "/ai/claude.svg",
+      "/ai/cursor.svg"
+    ],
+    "screenshot": {
+      "mimeType": "image/png",
+      "width": 390,
+      "height": 918
+    }
+  },
+  {
+    "name": "ai",
+    "width": 1440,
+    "contentHeight": 1488,
+    "capturedHeight": 1488,
+    "consoleMessages": [
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"MCP copy action\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"connection permissions disclosure\",\"pass\":true}"
+      }
+    ],
+    "missingImages": [
+      "/art/business-reset.svg",
+      "/art/clarity-guide.svg",
+      "/art/pricing-playbook.svg",
+      "/ai/chatgpt.svg",
+      "/ai/claude.svg",
+      "/ai/cursor.svg"
+    ],
+    "screenshot": {
+      "mimeType": "image/png",
+      "width": 1440,
+      "height": 1488
+    }
+  },
+  {
+    "name": "setup",
+    "width": 390,
+    "contentHeight": 2166,
+    "capturedHeight": 2166,
+    "consoleMessages": [
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"appearance selection\",\"pass\":true}"
+      },
+      {
+        "level": "log",
+        "text": "CHECK {\"name\":\"setup back navigation\",\"pass\":true}"
+      }
+    ],
+    "missingImages": [
+      "/art/business-reset.svg",
+      "/art/clarity-guide.svg",
+      "/art/pricing-playbook.svg",
+      "/ai/chatgpt.svg",
+      "/ai/claude.svg",
+      "/ai/cursor.svg"
+    ],
+    "screenshot": {
+      "mimeType": "image/png",
+      "width": 390,
+      "height": 2166
+    }
+  }
+]

@@ -221,7 +221,7 @@ it("recognizes returning creators on home/sign-in/sign-up after an overnight abs
   );
   const guest = await request("/");
   expect(guest.status).toBe(200);
-  expect(await guest.text()).toContain("Your expertise.");
+  expect(await guest.text()).toContain("into your next sale.");
   const logout = await request("/api/signout", {}, cookie);
   expect(logout.status).toBe(200);
   expect((await request("/sign-in", undefined, cookie)).status).toBe(200);

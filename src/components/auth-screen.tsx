@@ -1,4 +1,5 @@
 "use client";
+import Brand from "./brand";
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { BookOpen, Check, Loader2 } from "lucide-react";
@@ -84,17 +85,13 @@ export default function AuthScreen({
   return (
     <div className="auth-page">
       <aside className="auth-art">
-        <Link href="/" className="brand">
-          <span className="brand-icon">c</span>coachlane.
-        </Link>
+        <Brand />
         <div>
           <span className="eyebrow">A HOME FOR WHAT YOU KNOW</span>
           <h1>
-            Good ideas deserve
+            Turn what you know
             <br />
-            to get out
-            <br />
-            into the world.
+            into your next sale.
           </h1>
           <p>
             Make a little space for your expertise.
@@ -245,7 +242,7 @@ export default function AuthScreen({
             </p>
           )}
           <Link className="subtle-link" href="/">
-            Back to Coachlane
+            Back to Sore
           </Link>
         </div>
       </main>

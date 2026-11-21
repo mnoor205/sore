@@ -1,0 +1,837 @@
+{
+  "date": "2026-11-20",
+  "measurements": [
+    {
+      "view": "overview",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "overview",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "overview",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "overview",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "analytics",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "analytics",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "analytics",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "analytics",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "products",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "products",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "products",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "products",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "storefront",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "storefront",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "storefront",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "storefront",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "customers",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "customers",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "customers",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "customers",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "orders",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "orders",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "orders",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "orders",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "discounts",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "discounts",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "discounts",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "discounts",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "connect-ai",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "connect-ai",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "connect-ai",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "connect-ai",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "billing",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "billing",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "billing",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "billing",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "settings",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "settings",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "settings",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "settings",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-1",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-1",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-1",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-1",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-2",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-2",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-2",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-2",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-3",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-3",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-3",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-3",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-4",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-4",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-4",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-4",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-5",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-5",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-5",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "setup-5",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "sign-in",
+      "width": 320,
+      "measurement": {
+        "width": 320,
+        "document": 320,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "sign-in",
+      "width": 390,
+      "measurement": {
+        "width": 390,
+        "document": 390,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "sign-in",
+      "width": 820,
+      "measurement": {
+        "width": 820,
+        "document": 820,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    },
+    {
+      "view": "sign-in",
+      "width": 1440,
+      "measurement": {
+        "width": 1440,
+        "document": 1440,
+        "font": "\"Sore Geist\", Arial, sans-serif",
+        "overflow": [],
+        "brokenImages": 0
+      },
+      "errors": [],
+      "isError": false
+    }
+  ]
+}

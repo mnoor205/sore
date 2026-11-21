@@ -140,6 +140,12 @@ it("hosted mode disables demo login and accurately explains missing creator auth
       body: JSON.stringify({ workspace: "demo" }),
     });
     expect(demo.status).toBe(404);
+    const home = await hosted.dispatchFetch(origin + "/");
+    expect(home.status).toBe(200);
+    const homeHtml = await home.text();
+    expect(homeHtml).toContain('data-pricing-state="unavailable"');
+    expect(homeHtml).toContain("Live pricing is temporarily unavailable.");
+    expect(homeHtml).not.toContain("purchases remaining at");
     expect((await hosted.dispatchFetch(origin + "/api/workspace")).status).toBe(
       503,
     );
@@ -147,11 +153,52 @@ it("hosted mode disables demo login and accurately explains missing creator auth
     await hosted.dispose();
   }
 });
+it("quotes founding prices from completed real purchases and excludes demo and pending sessions", async () => {
+  const db = await mf.getD1Database("DB");
+  await db
+    .prepare(
+      "INSERT INTO stores(id,owner_id,slug,name,demo,created_at) VALUES ('offer-test','offer-owner','offer-test','Offer test',0,0)",
+    )
+    .run();
+  const page = async () => (await request("/", undefined, "GET", "")).text();
+  const check = async (price: number, remaining: number, next: number) => {
+    const html = await page();
+    expect(html).toContain(`data-current-price="${price}"`);
+    expect(html).toContain(`data-price-remaining="${remaining}"`);
+    expect(html).toContain(`data-next-price="${next}"`);
+  };
+  try {
+    await db
+      .prepare(
+        "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES ('offer-pending','offer-test','lifetime','pending','cs_pending',0,0),('offer-failed','offer-test','lifetime','failed','cs_failed',0,0),('offer-demo','demo-store','lifetime','paid','cs_demo',0,0),('offer-sub','offer-test','subscription','paid','cs_sub',0,0)",
+      )
+      .run();
+    await check(99, 5, 109);
+    for (let i = 0; i < 10; i++) {
+      await db
+        .prepare(
+          "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES (?,'offer-test','lifetime','paid',?,0,0)",
+        )
+        .bind(`offer-paid-${i}`, `cs_paid_${i}`)
+        .run();
+      if (i === 3) await check(99, 1, 109);
+      if (i === 4) await check(109, 5, 119);
+      if (i === 9) await check(119, 5, 129);
+    }
+  } finally {
+    await db
+      .prepare("DELETE FROM billing_sessions WHERE id LIKE 'offer-%'")
+      .run();
+    await db.prepare("DELETE FROM stores WHERE id='offer-test'").run();
+  }
+});
 it("serves the actual OpenNext build and its static assets in workerd", async () => {
   const home = await request("/", undefined, "GET", "");
   expect(home.status).toBe(200);
   const homeHtml = await home.text();
-  expect(homeHtml).toContain("Your expertise.");
+  expect(homeHtml).toContain("into your next sale.");
+  expect(homeHtml).toContain("ILLUSTRATIVE DEMO");
+  expect(homeHtml).toContain("Checkout is not open yet.");
   const script = homeHtml.match(/src="([^\"]+\.js[^\"]*)"/);
   expect(script).toBeTruthy();
   const clientAsset = await request(script![1]);
@@ -167,7 +214,7 @@ it("serves the actual OpenNext build and its static assets in workerd", async ()
   expect(html).not.toContain("demo-store/demo-reset");
   const dashboard = await request("/dashboard");
   expect(dashboard.status).toBe(200);
-  expect(await dashboard.text()).toContain("coachlane");
+  expect(await dashboard.text()).toContain("Sore");
 });
 it("protects creator APIs and returns truthful demo metrics without private public payloads", async () => {
   const unauth = await request("/api/workspace", undefined, "GET", "");

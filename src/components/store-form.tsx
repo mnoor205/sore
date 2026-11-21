@@ -83,7 +83,7 @@ export default function StoreForm({
           <label>
             Store address
             <div className="input-prefix">
-              <span>coachlane /</span>
+              <span>Sore /</span>
               <input
                 required
                 minLength={3}

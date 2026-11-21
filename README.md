@@ -1,8 +1,8 @@
-# Coachlane
+# Sore
 
 A working local MVP that helps independent business coaches turn existing products into a ready-to-sell storefront. Actual Next.js on Cloudflare Workers through OpenNext, with separate authenticated MCP and fulfillment Workers. MCP reads catalog/aggregates and, with separate consent, saves private drafts. No embedded chatbot or LLM subscription.
 
-The app is deployed to [coachlane.getsore.me](https://coachlane.getsore.me), with branded creator email OTP powered by Cloudflare Workers, D1 and Email Sending from `login@getsore.me` (see [BRANDED-EMAIL.md](BRANDED-EMAIL.md)). Clerk has been removed. Storefront commerce remains public; private creator APIs require revocable app sessions. The legacy Access callback remains protected for rollback. Staging D1, private R2, OAuth KV, Queues and the scheduled email Worker are configured; all seven migrations are applied, including branded-email challenges. Stripe/webhooks, hosted upload credentials, fulfillment email and external AI-client verification remain pending. Tax collection stays disabled. See [AUTH.md](AUTH.md) and [DEPLOYMENT.md](DEPLOYMENT.md).
+The app is deployed to [getsore.me](https://getsore.me), with branded creator email OTP powered by Cloudflare Workers, D1 and Email Sending from `login@getsore.me` (see [BRANDED-EMAIL.md](BRANDED-EMAIL.md)). Clerk has been removed. Storefront commerce remains public; private creator APIs require revocable app sessions. The legacy Access callback remains protected for rollback. Staging D1, private R2, OAuth KV, Queues and the scheduled email Worker are configured; all seven migrations are applied, including branded-email challenges. Stripe/webhooks, hosted upload credentials, fulfillment email and external AI-client verification remain pending. Tax collection stays disabled. See [AUTH.md](AUTH.md) and [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Creator-first workflow
 
@@ -64,7 +64,7 @@ See [SETUP.md](SETUP.md) for exact activation and deployment steps and [IMPLEMEN
 
 ## Defaults and policy
 
-The provisional name is Coachlane. Engineering defaults are 50 products, 25 MB per upload, 500 MB storage and a seven-day failed-subscription-payment grace period. They are configurable, not researched requirements. A lifetime purchase snapshots its granted quotas so later defaults cannot reduce it. The founding offer starts at USD 99, has a configurable cap, and never converts automatically to a subscription. No recurring price is invented.
+The app is named Sore. Engineering defaults are 50 products, 25 MB per upload, 500 MB storage and a seven-day failed-subscription-payment grace period. They are configurable, not researched requirements. A lifetime purchase snapshots its granted quotas so later defaults cannot reduce it. The founding offer starts at USD 99, has a configurable cap, and never converts automatically to a subscription. No recurring price is invented.
 
 When a recurring plan lapses, new free and paid checkouts pause. Catalog management, exports and existing protected buyer access remain available. Cancel-at-period-end retains access through the paid period. A full lifetime-purchase refund revokes the lifetime entitlement. Refunding a recurring Stripe invoice does not itself cancel its subscription; subscription access follows Stripe's current subscription status. Product refunds are separate and a full refund revokes further protected resource access.
 

@@ -71,7 +71,7 @@ it("sends the branded multipart email, hashes codes, preserves creator identity,
   const message = (await call("messages")).data[0];
   expect(message.from).toEqual({
     email: "login@getsore.me",
-    name: "Coachlane",
+    name: "Sore",
   });
   expect(message.html).toContain("#ec008c");
   expect(message.html).toContain(s.code);

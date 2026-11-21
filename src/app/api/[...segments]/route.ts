@@ -678,7 +678,7 @@ async function route(req: NextRequest, { params }: Context) {
         headers: {
           "Content-Type": "application/json",
           "Content-Disposition":
-            'attachment; filename="coachlane-ai-context.json"',
+            'attachment; filename="sore-ai-context.json"',
           "Cache-Control": "no-store",
         },
       });

@@ -509,7 +509,7 @@ describe("MCP authorization and reporting", () => {
         },
       },
     });
-    expect(initialized.data.result.serverInfo.name).toBe("coachlane");
+    expect(initialized.data.result.serverInfo.name).toBe("sore");
     const tools = await call("mcp", {
       props,
       message: { jsonrpc: "2.0", id: 2, method: "tools/list" },

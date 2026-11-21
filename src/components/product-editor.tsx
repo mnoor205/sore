@@ -122,7 +122,7 @@ export default function ProductEditor({
   }
   return (
     <Modal
-      title={product ? "Edit product" : "Make room for your next idea"}
+      title={product ? "Edit product" : "Add product"}
       onClose={onClose}
       wide
     >

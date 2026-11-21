@@ -108,8 +108,8 @@
       ],
       "vars": {
         "APP_MODE": "production",
-        "APP_URL": "https://coachlane.getsore.me",
-        "MCP_URL": "https://coachlane-mcp-staging.warda.workers.dev",
+        "APP_URL": "https://getsore.me",
+        "MCP_URL": "https://mcp.getsore.me",
         "PLATFORM_FEE_BPS": "0",
         "LTD_PRICE_CENTS": "9900",
         "LTD_LIMIT": "100",
@@ -153,6 +153,16 @@
       "workers_dev": false,
       "minify": true,
       "routes": [
+        {
+          "pattern": "getsore.me",
+          "custom_domain": true,
+          "zone_name": "getsore.me",
+        },
+        {
+          "pattern": "www.getsore.me",
+          "custom_domain": true,
+          "zone_name": "getsore.me",
+        },
         {
           "pattern": "coachlane.getsore.me",
           "custom_domain": true,

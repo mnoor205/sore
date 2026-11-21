@@ -85,7 +85,7 @@ export function forPublicProduct<T extends { presentationJson: string }>(
 export const presets = {
   studio: {
     name: "Studio",
-    description: "Clean typography, pink-to-coral accents and soft cards.",
+    description: "Clean typography, pink-to-coral accents and dark cards.",
     accent: "#ec008c",
   },
   editorial: {

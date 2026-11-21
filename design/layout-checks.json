@@ -1,0 +1,169 @@
+{
+  "checkedAt": "2026-11-20",
+  "results": [
+    {
+      "width": 320,
+      "measurements": {
+        "width": 320,
+        "documentWidth": 320,
+        "phones": [
+          {
+            "left": 20,
+            "right": 115
+          },
+          {
+            "left": 120,
+            "right": 200
+          },
+          {
+            "left": 205,
+            "right": 300
+          }
+        ],
+        "cubeFaces": 4,
+        "rotorTurns": true,
+        "removedControls": true,
+        "removedQuotas": true,
+        "brokenImages": 0
+      },
+      "interactions": [
+        {
+          "level": "log",
+          "text": "IMPROVE Work on The Pricing Playbook’s product page first."
+        },
+        {
+          "level": "log",
+          "text": "BUILD Test a small paid follow-up to Find Your Clarity."
+        },
+        {
+          "level": "log",
+          "text": "FREE REQUESTS true"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "width": 390,
+      "measurements": {
+        "width": 390,
+        "documentWidth": 390,
+        "phones": [
+          {
+            "left": 26,
+            "right": 141
+          },
+          {
+            "left": 146,
+            "right": 244
+          },
+          {
+            "left": 249,
+            "right": 364
+          }
+        ],
+        "cubeFaces": 4,
+        "rotorTurns": true,
+        "removedControls": true,
+        "removedQuotas": true,
+        "brokenImages": 0
+      },
+      "interactions": [
+        {
+          "level": "log",
+          "text": "IMPROVE Work on The Pricing Playbook’s product page first."
+        },
+        {
+          "level": "log",
+          "text": "BUILD Test a small paid follow-up to Find Your Clarity."
+        },
+        {
+          "level": "log",
+          "text": "FREE REQUESTS true"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "width": 768,
+      "measurements": {
+        "width": 768,
+        "documentWidth": 768,
+        "phones": [
+          {
+            "left": 55,
+            "right": 278
+          },
+          {
+            "left": 289,
+            "right": 479
+          },
+          {
+            "left": 490,
+            "right": 713
+          }
+        ],
+        "cubeFaces": 4,
+        "rotorTurns": true,
+        "removedControls": true,
+        "removedQuotas": true,
+        "brokenImages": 0
+      },
+      "interactions": [
+        {
+          "level": "log",
+          "text": "IMPROVE Work on The Pricing Playbook’s product page first."
+        },
+        {
+          "level": "log",
+          "text": "BUILD Test a small paid follow-up to Find Your Clarity."
+        },
+        {
+          "level": "log",
+          "text": "FREE REQUESTS true"
+        }
+      ],
+      "errors": []
+    },
+    {
+      "width": 1440,
+      "measurements": {
+        "width": 1440,
+        "documentWidth": 1440,
+        "phones": [
+          {
+            "left": 242,
+            "right": 566
+          },
+          {
+            "left": 582,
+            "right": 858
+          },
+          {
+            "left": 874,
+            "right": 1198
+          }
+        ],
+        "cubeFaces": 4,
+        "rotorTurns": true,
+        "removedControls": true,
+        "removedQuotas": true,
+        "brokenImages": 0
+      },
+      "interactions": [
+        {
+          "level": "log",
+          "text": "IMPROVE Work on The Pricing Playbook’s product page first."
+        },
+        {
+          "level": "log",
+          "text": "BUILD Test a small paid follow-up to Find Your Clarity."
+        },
+        {
+          "level": "log",
+          "text": "FREE REQUESTS true"
+        }
+      ],
+      "errors": []
+    }
+  ]
+}
