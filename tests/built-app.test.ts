@@ -4,7 +4,7 @@ import {
   convertV4MiniflareOptions,
   kCurrentWorker,
 } from "miniflare";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import {
   accessIssuer,
   accessAudience,
@@ -79,17 +79,11 @@ beforeAll(async () => {
   );
   const db = await mf.getD1Database("DB");
   await db.exec(
-    readFileSync("migrations/0001_initial.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0002_delivery_refunds_grants.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0003_setup_progress.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0004_platform_refunds.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0005_guided_setup_and_drafts.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0006_cloudflare_email_auth.sql", "utf8"),
+    readdirSync("migrations")
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((name) => readFileSync("migrations/" + name, "utf8"))
+      .join("\n"),
   );
   await db.exec(readFileSync("fixtures/demo.sql", "utf8"));
   const r = await request("/api/dev/session", { workspace: "demo" });
@@ -528,4 +522,62 @@ it("optional product sections render in their chosen order and public samples st
     "",
   );
   expect(paidFile.status).toBe(404);
+});
+
+it("authorizes analytics and tracking preferences from the session storefront", async () => {
+  const db = await mf.getD1Database("DB");
+  await db
+    .prepare(
+      "INSERT INTO stores(id,owner_id,slug,name,created_at) VALUES ('traffic-b','traffic-owner','traffic-b','Other storefront',0)",
+    )
+    .run();
+  try {
+    expect((await request("/api/analytics", undefined, "GET", "")).status).toBe(
+      401,
+    );
+    expect(
+      (
+        await request(
+          "/api/analytics/settings",
+          { trackingEnabled: false },
+          "PATCH",
+          "",
+        )
+      ).status,
+    ).toBe(401);
+    expect((await request("/api/analytics?days=0")).status).toBe(400);
+    expect((await json("/api/analytics?storeId=traffic-b")).status).toBe(
+      "setup",
+    );
+    expect(
+      (
+        await request(
+          "/api/analytics/settings",
+          { storeId: "traffic-b", trackingEnabled: false },
+          "PATCH",
+        )
+      ).status,
+    ).toBe(400);
+    await json(
+      "/api/analytics/settings?storeId=traffic-b",
+      { trackingEnabled: false },
+      "PATCH",
+    );
+    expect((await json("/api/analytics")).settings.trackingEnabled).toBe(false);
+    expect(
+      await db
+        .prepare("SELECT tracking_enabled FROM stores WHERE id='traffic-b'")
+        .first("tracking_enabled"),
+    ).toBe(1);
+    const dropped = await request(
+      "/api/public/jamie-lane/view",
+      { visitor: crypto.randomUUID(), productId: "business-reset" },
+      "POST",
+      "",
+    );
+    expect(await dropped.json()).toEqual({ recorded: false });
+  } finally {
+    await json("/api/analytics/settings", { trackingEnabled: true }, "PATCH");
+    await db.prepare("DELETE FROM stores WHERE id='traffic-b'").run();
+  }
 });

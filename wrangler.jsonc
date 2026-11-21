@@ -15,7 +15,18 @@
     },
     "redact_query_string": true,
   },
+  "analytics_engine_datasets": [
+    { "binding": "STOREFRONT_ANALYTICS", "dataset": "sore_storefront_dev" },
+  ],
+  "ratelimits": [
+    {
+      "name": "ANALYTICS_LIMITER",
+      "namespace_id": "61",
+      "simple": { "limit": 120, "period": 60 },
+    },
+  ],
   "vars": {
+    "ANALYTICS_DATASET": "sore_storefront_dev",
     "APP_MODE": "development",
     "APP_URL": "http://localhost:3000",
     "MCP_URL": "http://localhost:8788",
@@ -59,7 +70,21 @@
   "env": {
     "production": {
       "name": "coachlane",
+      "analytics_engine_datasets": [
+        {
+          "binding": "STOREFRONT_ANALYTICS",
+          "dataset": "sore_storefront_production",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "ANALYTICS_LIMITER",
+          "namespace_id": "62",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
       "vars": {
+        "ANALYTICS_DATASET": "sore_storefront_production",
         "APP_MODE": "production",
         "APP_URL": "https://REPLACE_APP_DOMAIN",
         "MCP_URL": "https://REPLACE_MCP_DOMAIN",
@@ -110,7 +135,21 @@
           "allowed_sender_addresses": ["login@getsore.me"],
         },
       ],
+      "analytics_engine_datasets": [
+        {
+          "binding": "STOREFRONT_ANALYTICS",
+          "dataset": "sore_storefront_staging",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "ANALYTICS_LIMITER",
+          "namespace_id": "63",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
       "vars": {
+        "ANALYTICS_DATASET": "sore_storefront_staging",
         "APP_MODE": "production",
         "APP_URL": "https://getsore.me",
         "MCP_URL": "https://mcp.getsore.me",

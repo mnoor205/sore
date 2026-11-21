@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { build } from "esbuild";
-import { readFileSync, mkdirSync } from "node:fs";
+import { readdirSync, readFileSync, mkdirSync } from "node:fs";
 import { createHmac, createHash } from "node:crypto";
 import {
   accessIssuer,
@@ -13,6 +13,8 @@ let mf: Miniflare;
 let stripeSession: Record<string, unknown> = {};
 let stripeResponses: Record<string, unknown> = {};
 let stripeRequests: { path: string; body: string }[] = [];
+let analyticsQueries: string[] = [];
+let analyticsFailure = false;
 let providerCalls = 0;
 let providerFail = false;
 const props = {
@@ -196,6 +198,24 @@ beforeAll(async () => {
         EMAIL_FROM: "Test <test@example.test>",
       },
       outboundService: async (req) => {
+        if (new URL(req.url).pathname.endsWith("/analytics_engine/sql")) {
+          const sql = await req.text();
+          analyticsQueries.push(sql);
+          if (analyticsFailure)
+            return new Response("unauthorized", { status: 403 });
+          return Response.json({
+            data: sql.includes("formatDateTime")
+              ? [
+                  {
+                    label: new Date().toISOString().slice(0, 10),
+                    visitors: "2",
+                    views: "8",
+                    productViews: "3",
+                  },
+                ]
+              : [],
+          });
+        }
         if (req.url === accessIssuer + "/cdn-cgi/access/certs")
           return Response.json(accessJwks);
         if (new URL(req.url).hostname === "api.stripe.com") {
@@ -235,24 +255,11 @@ beforeAll(async () => {
     }),
   );
   await call("init", {
-    sql:
-      readFileSync("migrations/0001_initial.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0002_delivery_refunds_grants.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0003_setup_progress.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0004_platform_refunds.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0005_guided_setup_and_drafts.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0006_cloudflare_email_auth.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0008_import_sources.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0009_founding_price_ladder.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0011_visit_reporting.sql", "utf8"),
+    sql: readdirSync("migrations")
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((name) => readFileSync("migrations/" + name, "utf8"))
+      .join("\n"),
   });
 }, 60000);
 beforeEach(async () => {
@@ -1923,5 +1930,130 @@ describe("Stan storefront import", () => {
         [s.store.id],
       ),
     ).toHaveLength(2);
+  });
+});
+
+describe("storefront analytics", () => {
+  const visitor = "5b4e0832-42d0-47e3-92fc-cce935111c65";
+  const input = { visitor, productId: "paid", source: "Instagram" };
+  const event = (extra: Record<string, unknown> = {}) =>
+    call("analytics", {
+      slug: "store-a",
+      kind: "pageview",
+      input,
+      headers: { "cf-ipcountry": "CA", "user-agent": "Mobile Safari/600" },
+      ...extra,
+    });
+  const patch = (input: unknown) => event({ action: "settings", input });
+
+  it("collects published pages with coarse dimensions and a store-specific daily visitor hash", async () => {
+    const result = await event();
+    expect(result.data).toMatchObject({
+      recorded: true,
+      points: [
+        {
+          indexes: ["a"],
+          blobs: [
+            "paid",
+            "Instagram",
+            "CA",
+            "Phone",
+            "Safari",
+            expect.stringMatching(/^[0-9a-f]{64}$/),
+          ],
+        },
+      ],
+    });
+    const dailyId = result.data.points[0].blobs[5];
+    const home = await event({
+      input: { visitor, source: "Direct / unknown" },
+    });
+    expect(home.data.points[0].blobs).toEqual([
+      "",
+      "Direct / unknown",
+      "CA",
+      "Phone",
+      "Safari",
+      dailyId,
+    ]);
+    const otherStore = await event({
+      slug: "store-b",
+      input: { visitor, source: "Direct / unknown" },
+    });
+    expect(otherStore.data.points[0].blobs[5]).not.toEqual(dailyId);
+    expect(
+      (await event({ input: { ...input, productId: "other" } })).status,
+    ).toBe(404);
+    expect(
+      (
+        await event({
+          input: { ...input, source: "https://example.com/?email=private" },
+        })
+      ).status,
+    ).toBe(400);
+    await query("UPDATE products SET state='draft' WHERE id='paid'");
+    expect((await event()).status).toBe(404);
+  });
+
+  it("applies tracking, owner and browser privacy controls to both counters", async () => {
+    for (const kind of ["view", "pageview"]) {
+      for (const headers of [{ dnt: "1" }, { "sec-gpc": "1" }]) {
+        expect((await event({ kind, headers })).data.recorded).toBe(false);
+      }
+      expect((await event({ kind, ownerId: "owner_a" })).data.recorded).toBe(
+        false,
+      );
+    }
+    await patch({ excludeOwnerVisits: false });
+    expect((await event({ ownerId: "owner_a" })).data.recorded).toBe(true);
+    await Promise.all([event({ kind: "view" }), event({ kind: "view" })]);
+    expect(await query("SELECT COUNT(*) AS n FROM views")).toEqual([{ n: 1 }]);
+    await patch({ trackingEnabled: false });
+    for (const kind of ["view", "pageview"])
+      expect((await event({ kind })).data.recorded).toBe(false);
+    const other = await event({
+      slug: "store-b",
+      input: { visitor, source: "Other referral" },
+    });
+    expect(other.data.recorded).toBe(true);
+    expect((await patch({ trackingEnabled: "false" })).status).toBe(400);
+  });
+
+  it("pins every provider query to the store and UTC range and preserves commerce when traffic is unavailable", async () => {
+    analyticsQueries = [];
+    const order = await checkout();
+    await confirm(order);
+    const report = await event({ action: "report", days: 7 });
+    expect(report.data.status).toBe("ready");
+    expect(report.data.traffic.trend).toHaveLength(7);
+    expect(report.data.traffic.trend[6]).toMatchObject({
+      visitors: 2,
+      views: 8,
+    });
+    expect(report.data.traffic.trend[0].views).toBe(0);
+    expect(report.data.traffic.productViews).toBe(3);
+    expect(report.data.commerce).toEqual({ checkouts: 1, purchases: 1 });
+    expect(analyticsQueries).toHaveLength(6);
+    for (const sql of analyticsQueries) {
+      expect(sql).toMatch(
+        /FROM test_storefront WHERE index1 = 'a' AND timestamp >= toDateTime\(\d+\) AND timestamp < toDateTime\(\d+\)/,
+      );
+      expect(sql).toContain("SUM(_sample_interval)");
+    }
+    analyticsFailure = true;
+    try {
+      const other = await event({
+        slug: "store-b",
+        action: "report",
+        days: 30,
+      });
+      expect(other.data).toMatchObject({
+        status: "unavailable",
+        traffic: null,
+        commerce: { checkouts: 0, purchases: 0 },
+      });
+    } finally {
+      analyticsFailure = false;
+    }
   });
 });

@@ -49,6 +49,7 @@ export default async function Page({
         demo: !!store.demo,
         stylePreset: store.stylePreset,
       }}
+      trackingEnabled={!!store.trackingEnabled}
       products={list.map(forPublicProduct)}
       preview={(await searchParams).preview === "1"}
     />

@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import StripeAccount, { CountrySelect } from "./stripe-account";
 import type { StripeCountry } from "@/lib/stripe-countries";
+import StorefrontAnalytics from "./storefront-analytics";
 import LaunchHome from "./launch-home";
 import ProductEditor, { type Product } from "./product-editor";
 import StoreForm, { type Store } from "./store-form";
@@ -127,6 +128,7 @@ const navigation = [
   { id: "storefront", name: "My storefront", icon: StoreIcon },
   { id: "customers", name: "Customers", icon: Users },
   { id: "orders", name: "Orders", icon: ShoppingBag },
+  { id: "analytics", name: "Analytics", icon: ChartNoAxesCombined },
   { id: "payments", name: "Payments", icon: Landmark },
   { id: "discounts", name: "Discounts", icon: Ticket },
 ];
@@ -143,6 +145,7 @@ const descriptions: Record<string, string> = {
   orders: "Payments and delivery, in one place.",
   discounts: "Create an offer for your next promotion.",
   "connect-ai": "Give your assistant the context behind your store.",
+  analytics: "See how people find and use your storefront.",
   payments: "Sales, payouts, and your Stripe account.",
   billing: "Your plan and payment details.",
   settings: "Preferences and store details.",
@@ -1591,6 +1594,13 @@ export default function Dashboard({ section }: { section: string }) {
                 </p>
               </div>
             </>
+          )}
+          {section === "analytics" && (
+            <StorefrontAnalytics
+              key={s.id}
+              slug={s.slug}
+              products={w.products}
+            />
           )}
           {section === "payments" && (
             <div className="settings-stack payments-page">
