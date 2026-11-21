@@ -15,6 +15,8 @@ export type AppEnv = {
   ACCESS_ISSUER?: string;
   ACCESS_AUDIENCE?: string;
   STRIPE_SECRET_KEY?: string;
+  /** Public key for Connect embedded components in the creator dashboard. */
+  STRIPE_PUBLISHABLE_KEY?: string;
   STRIPE_CONNECT_WEBHOOK_SECRET?: string;
   STRIPE_BILLING_WEBHOOK_SECRET?: string;
   STRIPE_RECURRING_PRICE_ID?: string;

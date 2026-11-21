@@ -57,6 +57,7 @@ import {
   connectPayments,
   foundingOffer,
   refreshPayments,
+  stripeAccountSession,
 } from "@/lib/billing";
 import { verifyWebhook } from "@/lib/webhooks";
 import {
@@ -628,10 +629,16 @@ async function route(req: NextRequest, { params }: Context) {
       });
       return json({ saved: true });
     }
-    if (path === "payments/connect" && req.method === "POST")
-      return json(await connectPayments(env, s));
+    if (path === "payments/connect" && req.method === "POST") {
+      const { country } = z
+        .object({ country: z.string().length(2).optional() })
+        .parse(await body());
+      return json(await connectPayments(env, s, country));
+    }
     if (path === "payments/refresh" && req.method === "POST")
       return json(await refreshPayments(env, s));
+    if (path === "payments/account-session" && req.method === "POST")
+      return json(await stripeAccountSession(env, s));
     if (path === "connect/refresh" && req.method === "GET")
       return NextResponse.redirect((await connectPayments(env, s)).url);
     if (path === "billing/checkout" && req.method === "POST")
@@ -695,8 +702,7 @@ async function route(req: NextRequest, { params }: Context) {
       return new Response(JSON.stringify(report, null, 2), {
         headers: {
           "Content-Type": "application/json",
-          "Content-Disposition":
-            'attachment; filename="sore-ai-context.json"',
+          "Content-Disposition": 'attachment; filename="sore-ai-context.json"',
           "Cache-Control": "no-store",
         },
       });

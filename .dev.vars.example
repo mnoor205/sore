@@ -8,6 +8,8 @@ OAUTH_BRIDGE_SECRET=
 # Test/sandbox key for development; prefer a restricted key with required permissions.
 # Creator sales use Stripe-Account; platform billing never does.
 STRIPE_SECRET_KEY=
+# Public key from the same account; loads Connect embedded components (Stripe account page).
+STRIPE_PUBLISHABLE_KEY=
 STRIPE_CONNECT_WEBHOOK_SECRET=
 STRIPE_BILLING_WEBHOOK_SECRET=
 

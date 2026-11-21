@@ -20,7 +20,11 @@ import {
 import { completeUpload } from "../src/lib/uploads";
 import { deliverEmail } from "../src/lib/email";
 import { verifyWebhook } from "../src/lib/webhooks";
-import { billingCheckout } from "../src/lib/billing";
+import {
+  billingCheckout,
+  connectPayments,
+  stripeAccountSession,
+} from "../src/lib/billing";
 import { database } from "../src/lib/db";
 import { stores } from "../src/lib/schema";
 import { eq } from "drizzle-orm";
@@ -97,6 +101,24 @@ export default {
             .where(eq(stores.id, b.storeId))
             .get();
           value = await billingCheckout(env, s!, b.kind);
+          break;
+        }
+        case "/test/connect": {
+          const s = await database(env)
+            .select()
+            .from(stores)
+            .where(eq(stores.id, b.storeId))
+            .get();
+          value = await connectPayments(env, s!, b.country);
+          break;
+        }
+        case "/test/account-session": {
+          const s = await database(env)
+            .select()
+            .from(stores)
+            .where(eq(stores.id, b.storeId))
+            .get();
+          value = await stripeAccountSession(env, s!);
           break;
         }
         case "/test/checkout":

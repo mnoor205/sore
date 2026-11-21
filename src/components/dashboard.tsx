@@ -38,8 +38,11 @@ import {
   ArrowDown,
   RefreshCw,
   CalendarDays,
+  Landmark,
   ChartNoAxesCombined,
 } from "lucide-react";
+import StripeAccount, { CountrySelect } from "./stripe-account";
+import type { StripeCountry } from "@/lib/stripe-countries";
 import LaunchHome from "./launch-home";
 import ProductEditor, { type Product } from "./product-editor";
 import StoreForm, { type Store } from "./store-form";
@@ -125,6 +128,7 @@ const navigation = [
 ];
 const settings = [
   { id: "connect-ai", name: "Connect your AI", icon: Sparkles },
+  { id: "stripe", name: "Stripe account", icon: Landmark },
   { id: "billing", name: "Plan & billing", icon: CreditCard },
   { id: "settings", name: "Settings", icon: Settings },
 ];
@@ -137,6 +141,7 @@ const descriptions: Record<string, string> = {
   discounts: "A little encouragement for the right moment.",
   "connect-ai":
     "Bring your store into the conversations you’re already having.",
+  stripe: "Your payments, payouts and business details, all in one place.",
   billing: "A simple plan for what comes next.",
   settings: "The details that keep your store running.",
 };
@@ -155,7 +160,8 @@ export default function Dashboard({ section }: { section: string }) {
     [busy, setBusy] = useState(""),
     [coupon, setCoupon] = useState(false),
     [stan, setStan] = useState(false),
-    [definitions, setDefinitions] = useState(false);
+    [definitions, setDefinitions] = useState(false),
+    [country, setCountry] = useState<StripeCountry | "">("");
   const load = useCallback(async () => {
     try {
       setW(await api<Workspace>(`workspace?days=${days}`));
@@ -1566,6 +1572,26 @@ export default function Dashboard({ section }: { section: string }) {
               </div>
             </>
           )}
+          {section === "stripe" && (
+            <StripeAccount
+              stripeAccount={s.stripeAccount || null}
+              paymentsReady={!!s.paymentsReady}
+              busy={!!busy}
+              onConnect={(c) =>
+                action(
+                  "connect",
+                  async () => {
+                    const r = await api<{ url: string }>(
+                      "payments/connect",
+                      c ? { country: c } : {},
+                    );
+                    window.location.href = r.url;
+                  },
+                  "Opening Stripe onboarding",
+                )
+              }
+            />
+          )}
           {section === "settings" && (
             <div className="settings-stack">
               <section className="panel settings-panel">
@@ -1584,17 +1610,24 @@ export default function Dashboard({ section }: { section: string }) {
                   belong to your connected account. Manage payments, refunds,
                   and disputes in your full Stripe Dashboard.
                 </p>
+                {!s.stripeAccount && (
+                  <CountrySelect value={country} onChange={setCountry} />
+                )}
                 <div className="actions">
                   <button
                     className="button primary"
-                    disabled={!!busy || !s.supportEmail}
+                    disabled={
+                      !!busy ||
+                      !s.supportEmail ||
+                      (!s.stripeAccount && !country)
+                    }
                     onClick={() =>
                       action(
                         "connect",
                         async () => {
                           const r = await api<{ url: string }>(
                             "payments/connect",
-                            {},
+                            s.stripeAccount ? {} : { country },
                           );
                           window.location.href = r.url;
                         },

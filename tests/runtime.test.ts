@@ -187,6 +187,7 @@ beforeAll(async () => {
         SESSION_SECRET: "test-session-secret-that-is-at-least-32-characters",
         OAUTH_BRIDGE_SECRET: "test-oauth-secret-that-is-at-least-32-characters",
         STRIPE_SECRET_KEY: "sk_test_fixture",
+        STRIPE_PUBLISHABLE_KEY: "pk_test_fixture",
         STRIPE_LTD_PRODUCT_ID: "prod_ltd",
         LTD_LIMIT: "7",
         STRIPE_CONNECT_WEBHOOK_SECRET: "whsec_fixture",
@@ -1203,6 +1204,54 @@ it("lifetime activation rejects a payment that doesn't match the reserved tier",
   expect(
     (await query("SELECT kind FROM entitlements WHERE store_id='a'"))[0].kind,
   ).not.toBe("lifetime");
+});
+
+it("new Connect accounts declare the creator's country and let Stripe pick currency", async () => {
+  await query("UPDATE stores SET stripe_account=NULL WHERE id='a'");
+  expect((await call("connect", { storeId: "a" })).status).toBe(400);
+  expect((await call("connect", { storeId: "a", country: "zz" })).status).toBe(
+    400,
+  );
+  stripeResponses["/v2/core/accounts"] = {
+    id: "acct_new",
+    object: "v2.core.account",
+  };
+  stripeResponses["/v2/core/account_links"] = {
+    url: "https://connect.stripe.com/setup/x",
+  };
+  const r = await call("connect", { storeId: "a", country: "gb" });
+  expect(r.status).toBe(200);
+  expect(r.data.url).toBe("https://connect.stripe.com/setup/x");
+  const created = JSON.parse(
+    stripeRequests.find((x) => x.path === "/v2/core/accounts")!.body,
+  );
+  expect(created.identity).toEqual({ country: "gb" });
+  expect(created.defaults.currency).toBeUndefined();
+  expect(
+    (await query("SELECT stripe_account FROM stores WHERE id='a'"))[0]
+      .stripe_account,
+  ).toBe("acct_new");
+});
+it("Stripe account sessions only cover the creator's own connected account", async () => {
+  stripeResponses["/v1/account_sessions"] = {
+    object: "account_session",
+    account: "acct_a",
+    client_secret: "accs_secret_a",
+  };
+  const r = await call("account-session", { storeId: "a" });
+  expect(r.status).toBe(200);
+  expect(r.data).toEqual({
+    clientSecret: "accs_secret_a",
+    publishableKey: "pk_test_fixture",
+  });
+  const body = new URLSearchParams(
+    stripeRequests.find((x) => x.path === "/v1/account_sessions")!.body,
+  );
+  expect(body.get("account")).toBe("acct_a");
+  expect(body.get("components[account_management][enabled]")).toBe("true");
+  expect(body.get("components[payouts][enabled]")).toBe("true");
+  await query("UPDATE stores SET stripe_account=NULL WHERE id='b'");
+  expect((await call("account-session", { storeId: "b" })).status).toBe(409);
 });
 
 describe("Guided setup and authorized draft writes", () => {

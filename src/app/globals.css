@@ -5871,3 +5871,60 @@ td > small {
     align-items: flex-start;
   }
 }
+
+.stripe-account {
+  display: grid;
+  gap: 16px;
+}
+.stripe-account .notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.stripe-account-tabs {
+  margin: 0;
+}
+.stripe-account-panel {
+  min-height: 320px;
+}
+.stripe-account-foot {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.stripe-account-foot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+}
+.country-select {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.country-select select {
+  font: inherit;
+  font-weight: 400;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  max-width: 320px;
+}
+.connect-stripe-row {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.connect-stripe-row .country-select {
+  margin: 0;
+  text-align: left;
+}

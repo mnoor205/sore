@@ -91,7 +91,9 @@ The implemented seller setup uses:
 - Checkout **direct charges** using `stripeAccount: connectedAccountId`. The creator is merchant of record and manages product disputes/refunds.
 - No wallet, payout engine, destination charge or transfer.
 
-From **Settings → Connect Stripe**, complete hosted onboarding, then **Refresh status** to check merchant capability. Account reuse is idempotent. The onboarding refresh URL requires an authenticated creator before making a new account link.
+Creators choose their business country before connecting; Stripe requires it on the account before merchant capabilities can be requested, and the account's default currency follows from it. From **Settings → Connect Stripe** (or **Stripe account** in the sidebar), complete hosted onboarding, then **Refresh status** to check merchant capability. Account reuse is idempotent. The onboarding refresh URL requires an authenticated creator before making a new account link.
+
+**Stripe account** (sidebar, `/dashboard/stripe`) embeds Stripe's Connect components — notification banner, account management, payments (refunds/disputes) and payouts — for the signed-in creator's own account. `POST /api/payments/account-session` mints a short-lived Account Session for the store's `stripe_account` only; the browser initializes Connect.js with `STRIPE_PUBLISHABLE_KEY` from the same Stripe account. Creators have full Dashboard access, so Stripe asks them to authenticate before sensitive changes. Before live Account Sessions, add the page URL (`https://getsore.me/dashboard/stripe`) under Connect settings → **Site links** for notification banner, account management, payments, payouts and balances.
 
 Create a Connect webhook destination for connected-account events pointing to:
 

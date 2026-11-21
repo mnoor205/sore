@@ -5,20 +5,27 @@ import { stores, entitlements } from "./schema";
 import { limits, type AppEnv } from "./env";
 import { stripeClient } from "./payments";
 import { AppError, id, now } from "./security";
+import { STRIPE_COUNTRIES } from "./stripe-countries";
 export async function connectPayments(
   env: AppEnv,
   store: typeof stores.$inferSelect,
+  country?: string,
 ) {
   const stripe = stripeClient(env);
   let account = store.stripeAccount;
   if (!account) {
+    // Stripe requires the account's country before it accepts merchant
+    // capabilities; its default currency then follows from that country.
+    const code = country?.toUpperCase();
+    if (!code || !(STRIPE_COUNTRIES as readonly string[]).includes(code))
+      throw new AppError("Choose the country your business is based in");
     const result = await stripe.v2.core.accounts.create(
       {
         display_name: store.name,
         contact_email: store.supportEmail,
         dashboard: "full",
+        identity: { country: code.toLowerCase() },
         defaults: {
-          currency: store.currency,
           responsibilities: {
             fees_collector: "stripe",
             losses_collector: "stripe",
@@ -303,4 +310,42 @@ export async function syncSubscription(env: AppEnv, subscriptionId: string) {
       updatedAt: now(),
     })
     .where(eq(entitlements.storeId, byCustomer.storeId));
+}
+/**
+ * Short-lived Account Session for Connect embedded components on the creator's
+ * own connected account. The account comes from the authenticated store, never
+ * from the request, so a creator can only ever manage their own Stripe account.
+ */
+export async function stripeAccountSession(
+  env: AppEnv,
+  store: typeof stores.$inferSelect,
+) {
+  if (!store.stripeAccount)
+    throw new AppError("Connect Stripe before managing your account", 409);
+  if (!env.STRIPE_PUBLISHABLE_KEY)
+    throw new AppError(
+      "Stripe account management isn't configured yet. Add the publishable key.",
+      503,
+    );
+  const session = await stripeClient(env).accountSessions.create({
+    account: store.stripeAccount,
+    components: {
+      notification_banner: { enabled: true },
+      account_management: { enabled: true },
+      payments: {
+        enabled: true,
+        features: {
+          refund_management: true,
+          dispute_management: true,
+          capture_payments: true,
+          destination_on_behalf_of_charge_management: false,
+        },
+      },
+      payouts: { enabled: true },
+    },
+  });
+  return {
+    clientSecret: session.client_secret,
+    publishableKey: env.STRIPE_PUBLISHABLE_KEY,
+  };
 }
