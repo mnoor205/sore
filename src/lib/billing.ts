@@ -50,7 +50,7 @@ export async function connectPayments(
       type: "account_onboarding",
       account_onboarding: {
         refresh_url: `${env.APP_URL}/api/connect/refresh`,
-        return_url: `${env.APP_URL}/dashboard/settings?payments=refresh`,
+        return_url: `${env.APP_URL}/dashboard/payments?payments=refresh`,
       },
     },
   });

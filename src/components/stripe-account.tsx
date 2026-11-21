@@ -57,9 +57,9 @@ export function CountrySelect({
 
 type Tab = "account" | "payments" | "payouts";
 const tabs: { id: Tab; name: string }[] = [
-  { id: "account", name: "Account details" },
   { id: "payments", name: "Payments" },
   { id: "payouts", name: "Payouts" },
+  { id: "account", name: "Account details" },
 ];
 
 /**
@@ -69,19 +69,17 @@ const tabs: { id: Tab; name: string }[] = [
  */
 export default function StripeAccount({
   stripeAccount,
-  paymentsReady,
   onConnect,
   busy,
 }: {
   stripeAccount: string | null;
-  paymentsReady: boolean;
   onConnect: (country?: StripeCountry) => void;
   busy: boolean;
 }) {
   const [country, setCountry] = useState<StripeCountry | "">("");
   const [instance, setInstance] = useState<StripeConnectInstance | null>(null),
     [error, setError] = useState(""),
-    [tab, setTab] = useState<Tab>("account");
+    [tab, setTab] = useState<Tab>("payments");
 
   useEffect(() => {
     if (!stripeAccount) return;
@@ -166,18 +164,6 @@ export default function StripeAccount({
 
   return (
     <div className="stripe-account">
-      {!paymentsReady && (
-        <div className="notice">
-          Stripe still needs a few details before you can accept payments.{" "}
-          <button
-            className="button outline"
-            disabled={busy}
-            onClick={() => onConnect()}
-          >
-            Continue Stripe setup
-          </button>
-        </div>
-      )}
       {error ? (
         <div className="error-box">{error}</div>
       ) : !instance ? (

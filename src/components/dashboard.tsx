@@ -124,11 +124,11 @@ const navigation = [
   { id: "storefront", name: "My storefront", icon: StoreIcon },
   { id: "customers", name: "Customers", icon: Users },
   { id: "orders", name: "Orders", icon: ShoppingBag },
+  { id: "payments", name: "Payments", icon: Landmark },
   { id: "discounts", name: "Discounts", icon: Ticket },
 ];
 const settings = [
   { id: "connect-ai", name: "Connect your AI", icon: Sparkles },
-  { id: "stripe", name: "Stripe account", icon: Landmark },
   { id: "billing", name: "Plan & billing", icon: CreditCard },
   { id: "settings", name: "Settings", icon: Settings },
 ];
@@ -141,7 +141,7 @@ const descriptions: Record<string, string> = {
   discounts: "A little encouragement for the right moment.",
   "connect-ai":
     "Bring your store into the conversations you’re already having.",
-  stripe: "Your payments, payouts and business details, all in one place.",
+  payments: "Your sales, payouts and Stripe account, all in one place.",
   billing: "A simple plan for what comes next.",
   settings: "The details that keep your store running.",
 };
@@ -175,6 +175,16 @@ export default function Dashboard({ section }: { section: string }) {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    // Back from Stripe-hosted onboarding: re-check capability status once.
+    if (section !== "payments") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payments") !== "refresh") return;
+    router.replace("/dashboard/payments");
+    api("payments/refresh", {})
+      .then(load)
+      .catch((e) => setError((e as Error).message));
+  }, [section, router, load]);
   const loadRows = useCallback(async () => {
     if (!["customers", "orders", "discounts", "connect-ai"].includes(section))
       return;
@@ -284,7 +294,7 @@ export default function Dashboard({ section }: { section: string }) {
       {
         name: "Connect your payments",
         done: !!s.paymentsReady,
-        url: "/dashboard/settings",
+        url: "/dashboard/payments",
       },
       {
         name: "Copy your bio link",
@@ -1572,33 +1582,13 @@ export default function Dashboard({ section }: { section: string }) {
               </div>
             </>
           )}
-          {section === "stripe" && (
-            <StripeAccount
-              stripeAccount={s.stripeAccount || null}
-              paymentsReady={!!s.paymentsReady}
-              busy={!!busy}
-              onConnect={(c) =>
-                action(
-                  "connect",
-                  async () => {
-                    const r = await api<{ url: string }>(
-                      "payments/connect",
-                      c ? { country: c } : {},
-                    );
-                    window.location.href = r.url;
-                  },
-                  "Opening Stripe onboarding",
-                )
-              }
-            />
-          )}
-          {section === "settings" && (
-            <div className="settings-stack">
+          {section === "payments" && (
+            <div className="settings-stack payments-page">
               <section className="panel settings-panel">
                 <div className="section-icon">
                   <CreditCard size={22} />
                   <div>
-                    <h2>Creator payments</h2>
+                    <h2>Payment status</h2>
                     <p>Your customers pay you directly through Stripe.</p>
                   </div>
                   <Badge tone={s.paymentsReady ? "green" : "gray"}>
@@ -1606,9 +1596,9 @@ export default function Dashboard({ section }: { section: string }) {
                   </Badge>
                 </div>
                 <p>
-                  Complete Stripe-hosted onboarding to accept payments. Sales
-                  belong to your connected account. Manage payments, refunds,
-                  and disputes in your full Stripe Dashboard.
+                  {s.stripeAccount
+                    ? "Sales go straight to your own Stripe account. See payments, issue refunds, answer disputes and manage payouts below."
+                    : "Connect Stripe to start accepting payments. Sales go straight to your own Stripe account."}
                 </p>
                 {!s.stripeAccount && (
                   <CountrySelect value={country} onChange={setCountry} />
@@ -1637,7 +1627,9 @@ export default function Dashboard({ section }: { section: string }) {
                   >
                     <CreditCard size={17} />
                     {s.stripeAccount
-                      ? "Continue Stripe setup"
+                      ? s.paymentsReady
+                        ? "Update Stripe details"
+                        : "Continue Stripe setup"
                       : "Connect Stripe"}
                   </button>
                   {s.stripeAccount && (
@@ -1656,14 +1648,6 @@ export default function Dashboard({ section }: { section: string }) {
                         <RefreshCw size={16} />
                         Refresh status
                       </button>
-                      <a
-                        className="button outline"
-                        href={`https://dashboard.stripe.com/${s.stripeAccount}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Stripe Dashboard <ExternalLink size={15} />
-                      </a>
                     </>
                   )}
                 </div>
@@ -1694,6 +1678,46 @@ export default function Dashboard({ section }: { section: string }) {
                   registrations and tax settings are verified; this app does not
                   remit taxes for you.
                 </p>
+              </section>
+              {s.stripeAccount && (
+                <StripeAccount
+                  stripeAccount={s.stripeAccount}
+                  busy={!!busy}
+                  onConnect={() =>
+                    action(
+                      "connect",
+                      async () => {
+                        const r = await api<{ url: string }>(
+                          "payments/connect",
+                          {},
+                        );
+                        window.location.href = r.url;
+                      },
+                      "Opening Stripe onboarding",
+                    )
+                  }
+                />
+              )}
+            </div>
+          )}
+          {section === "settings" && (
+            <div className="settings-stack">
+              <section className="panel settings-panel">
+                <div className="section-icon">
+                  <Landmark size={22} />
+                  <div>
+                    <h2>Payments</h2>
+                    <p>Sales, payouts and your Stripe account.</p>
+                  </div>
+                  <Badge tone={s.paymentsReady ? "green" : "gray"}>
+                    {s.paymentsReady ? "Payments enabled" : "Setup required"}
+                  </Badge>
+                </div>
+                <div className="actions">
+                  <Link className="button outline" href="/dashboard/payments">
+                    Go to Payments <ChevronRight size={15} />
+                  </Link>
+                </div>
               </section>
               <section className="panel settings-panel">
                 <h2>Account & data</h2>
