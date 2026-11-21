@@ -67,6 +67,7 @@ import {
 import { forPublicProduct } from "@/lib/presentation";
 import { mediaResponse } from "@/lib/media";
 import { deliverEmail } from "@/lib/email";
+import { importStanStore, previewStanStore } from "@/lib/stan-import";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ segments: string[] }> };
 async function route(req: NextRequest, { params }: Context) {
@@ -158,6 +159,19 @@ async function route(req: NextRequest, { params }: Context) {
         .object({ step: z.number().int().min(1).max(5) })
         .parse(await body());
       return json(await completeSetupStep(env, await identity(env), data.step));
+    }
+    if (path === "import/stan/preview" && req.method === "POST") {
+      const ownerId = await identity(env);
+      await rateLimit(env, `stan-import:${ownerId}`, 10);
+      const data = z
+        .object({ url: z.string().min(1).max(300) })
+        .parse(await body());
+      const owned = await db
+        .select({ id: stores.id })
+        .from(stores)
+        .where(eq(stores.ownerId, ownerId))
+        .get();
+      return json(await previewStanStore(env, owned?.id || null, data.url));
     }
     if (parts[0] === "media" && req.method === "GET") {
       let ownerId: string | undefined;
@@ -346,6 +360,10 @@ async function route(req: NextRequest, { params }: Context) {
     }
     const s = await creator(env);
     await rateLimit(env, `creator:${s.id}`, 180);
+    if (path === "import/stan" && req.method === "POST") {
+      await rateLimit(env, `stan-import:${s.ownerId}`, 10);
+      return json(await importStanStore(env, s.id, await body()));
+    }
     if (path === "setup/rehearse" && req.method === "POST") {
       const data = z.object({ productId: z.string() }).parse(await body());
       return json(await rehearseDelivery(env, s.id, data.productId));

@@ -41,6 +41,7 @@ import {
   revokeSession,
   verifyAccessIdentity,
 } from "../src/lib/email-auth";
+import { importStanStore, previewStanStore } from "../src/lib/stan-import";
 export default {
   async fetch(req: Request, env: AppEnv, ctx: ExecutionContext) {
     const path = new URL(req.url).pathname;
@@ -73,6 +74,12 @@ export default {
         case "/test/email-auth-revoke":
           await revokeSession(env, b.session);
           value = { ok: true };
+          break;
+        case "/test/stan-preview":
+          value = await previewStanStore(env, b.storeId, b.url);
+          break;
+        case "/test/stan-import":
+          value = await importStanStore(env, b.storeId, b.input);
           break;
         case "/test/init":
           await env.DB.exec(b.sql);

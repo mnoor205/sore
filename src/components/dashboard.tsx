@@ -43,6 +43,7 @@ import {
 import LaunchHome from "./launch-home";
 import ProductEditor, { type Product } from "./product-editor";
 import StoreForm, { type Store } from "./store-form";
+import StanImport from "./stan-import";
 import { api, Badge, Empty, Modal, money, Spinner } from "./shared";
 type Summary = {
   currency: string;
@@ -147,6 +148,7 @@ export default function Dashboard({ section }: { section: string }) {
     [menu, setMenu] = useState(false),
     [busy, setBusy] = useState(""),
     [coupon, setCoupon] = useState(false),
+    [stan, setStan] = useState(false),
     [definitions, setDefinitions] = useState(false);
   const load = useCallback(async () => {
     try {
@@ -449,7 +451,18 @@ export default function Dashboard({ section }: { section: string }) {
               {section === "overview" &&
                 !!(w.summary.paidOrders || w.summary.freeSignups || views) &&
                 dateFilter}
-              {section === "products" && addButton}
+              {section === "products" && (
+                <>
+                  <button
+                    className="button outline"
+                    onClick={() => setStan(true)}
+                  >
+                    <Download size={17} />
+                    Import from Stan
+                  </button>
+                  {addButton}
+                </>
+              )}
               {section === "discounts" && (
                 <button
                   className="button primary"
@@ -1658,6 +1671,16 @@ export default function Dashboard({ section }: { section: string }) {
           )}
         </main>
       </div>
+      {stan && (
+        <StanImport
+          storeCurrency={s.currency}
+          onClose={() => setStan(false)}
+          onImported={(r) => {
+            setTab(r.created.length ? "draft" : tab);
+            load();
+          }}
+        />
+      )}
       {editor !== false && (
         <ProductEditor
           product={editor || undefined}

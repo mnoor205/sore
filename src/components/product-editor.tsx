@@ -133,6 +133,16 @@ export default function ProductEditor({
           save(draftOnly ? "draft" : "published");
         }}
       >
+        {product?.draftSource === "stan" && product.state === "draft" && (
+          <div className="notice">
+            <b>Imported from Stan</b>
+            <p>
+              Check the copy and price, then add how buyers receive it. Stan
+              doesn’t share purchased files or booking calendars, so upload the
+              file or add your delivery link before publishing.
+            </p>
+          </div>
+        )}
         {product?.draftSource === "mcp" && (
           <div className="notice">
             <b>AI draft · version {product.version}</b>

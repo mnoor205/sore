@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Save,
   Package,
+  Download,
 } from "lucide-react";
 import { api, Badge, Spinner, money } from "./shared";
 import AssetUpload from "./asset-upload";
@@ -18,6 +19,8 @@ import ProductEditor, { type Product } from "./product-editor";
 import { setupContentSchema, type SetupContent } from "@/lib/onboarding-types";
 import { presets } from "@/lib/presentation";
 import type { Store } from "./store-form";
+import StanImport, { type StanPreview } from "./stan-import";
+import type { StanProduct } from "@/lib/stan-import";
 type Setup = {
   ownerId: string;
   step: number;
@@ -29,6 +32,22 @@ type Setup = {
   mode: string;
   updatedAt: number;
 };
+// Stan keeps full-size originals (often 8 MB+); its CDN serves resized copies at fixed presets.
+const stanResized = (url: string, preset: string) => {
+  if (!url || !/(^|\.)stanwith\.me$/.test(new URL(url).hostname)) return url;
+  const base = url
+    .split("/")
+    .at(-1)!
+    .replace(/\.[^.]*$/, "");
+  return `${url}/webp/${preset}/${base}.webp`;
+};
+const slugFrom = (handle: string) =>
+  handle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^[^a-z]+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
 const steps = [
   { title: "You & your audience", detail: "A little introduction" },
   { title: "Your first product", detail: "Bring what you already have" },
@@ -47,7 +66,9 @@ export default function GuidedSetup() {
     [error, setError] = useState(""),
     [preview, setPreview] = useState<"store" | "product">("store"),
     [edit, setEdit] = useState(false),
-    [test, setTest] = useState<{ url: string; notice: string } | null>(null);
+    [test, setTest] = useState<{ url: string; notice: string } | null>(null),
+    [stan, setStan] = useState(false),
+    [stanImported, setStanImported] = useState("");
   const version = useRef(1),
     ready = useRef(false),
     timer = useRef<ReturnType<typeof setTimeout> | null>(null),
@@ -106,6 +127,44 @@ export default function GuidedSetup() {
     setContent((c) => ({ ...c, creator: { ...c.creator, [key]: value } }));
   const updateProduct = (patch: Partial<SetupContent["product"]>) =>
     setContent((c) => ({ ...c, product: { ...c.product, ...patch } }));
+  function prefillFromStan(source: StanPreview, product: StanProduct | null) {
+    setContent((c) => ({
+      ...c,
+      creator: {
+        ...c.creator,
+        name: c.creator.name || source.name,
+        slug: c.creator.slug || slugFrom(source.handle),
+        bio: c.creator.bio || source.bio,
+        photo: c.creator.photo || stanResized(source.photo, "433x0/85"),
+        supportEmail: c.creator.supportEmail || source.supportEmail,
+        currency: source.currencySupported
+          ? (source.currency as SetupContent["creator"]["currency"])
+          : c.creator.currency,
+      },
+      product: product
+        ? {
+            ...c.product,
+            title: product.title,
+            description: product.description,
+            image: stanResized(product.image, "1200x0/100"),
+            buttonLabel: product.buttonLabel,
+            isPaid: product.price > 0,
+            price: product.price,
+            deliveryType: product.deliveryType,
+            deliveryUrl: product.deliveryUrl,
+            assetId: null,
+          }
+        : c.product,
+    }));
+    setStan(false);
+    setStanImported(
+      "Imported from stan.store/" +
+        source.handle +
+        ". Review each step; " +
+        (product?.note ? product.note + " " : "") +
+        "Once setup is done, bring in your other products from Products → Import from Stan.",
+    );
+  }
   async function next() {
     setError("");
     setBusy(true);
@@ -264,6 +323,30 @@ export default function GuidedSetup() {
           <fieldset disabled={busy} className="setup-fields">
             {step === 1 && (
               <>
+                {stanImported ? (
+                  <div className="notice">
+                    <b>Your Stan details are in.</b>
+                    <p>{stanImported}</p>
+                  </div>
+                ) : (
+                  <div className="notice stan-callout">
+                    <div>
+                      <b>Moving from Stan?</b>
+                      <p>
+                        Bring your profile and a product over from your
+                        stan.store page. You can edit everything after.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="button outline compact"
+                      onClick={() => setStan(true)}
+                    >
+                      <Download size={15} />
+                      Import from Stan
+                    </button>
+                  </div>
+                )}
                 <div className="form-row">
                   <label>
                     Your name
@@ -847,6 +930,12 @@ export default function GuidedSetup() {
               }));
             }
           }}
+        />
+      )}
+      {stan && (
+        <StanImport
+          onClose={() => setStan(false)}
+          onPrefill={prefillFromStan}
         />
       )}
     </div>

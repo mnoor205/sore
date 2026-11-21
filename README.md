@@ -10,6 +10,8 @@ New creators start with five saved steps: creator/audience, existing product, ap
 
 Product pages support optional audience, included items, preview images/separate sample, FAQs and creator-supplied testimonials. Creators can reorder or hide these predefined sections. Studio, Editorial and Botanical presets change the same mobile-first layout; there is no arbitrary page builder. Drafts are private, and purchased files are never automatically used as public samples.
 
+**Import from Stan.** Creators moving from stan.store can paste their Stan link on setup step 1 (prefills profile and a first product) or under **Products → Import from Stan** (bulk). The importer reads only the public storefront page, creates private drafts and never publishes. Images are copied into the creator's R2 storage so they survive cancelling Stan; empty profile fields are filled but nothing the creator wrote is overwritten; re-imports skip products already brought over. Stan doesn't expose purchased files or booking calendars, so downloads need their file uploaded and coaching calls need a booking link before publishing. See `src/lib/stan-import.ts`; parsing depends on Stan's current page structure and may need updating if Stan changes it.
+
 The initial workspace emphasizes setup and products. Reporting appears after publication and recorded activity; empty states never invent performance data.
 
 ## Run locally

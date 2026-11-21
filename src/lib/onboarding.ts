@@ -13,6 +13,7 @@ import { development, type AppEnv } from "./env";
 import { presentation } from "./presentation";
 import { AppError, hash, id, now, token } from "./security";
 import { setupContentSchema, type SetupContent } from "./onboarding-types";
+import { copyStanImage } from "./stan-import";
 type Progress = {
   owner_id: string;
   step: number;
@@ -135,6 +136,42 @@ export async function saveSetup(env: AppEnv, ownerId: string, input: unknown) {
     );
   return loadSetup(env, ownerId);
 }
+/** Copies images prefilled from a Stan import into the store, so they outlive the Stan account. */
+async function rehostStanImages(
+  env: AppEnv,
+  ownerId: string,
+  storeId: string,
+  content: SetupContent,
+) {
+  const rehost = async (url: string) => {
+    try {
+      if (!/(^|\.)stanwith\.me$/i.test(new URL(url).hostname)) return url;
+    } catch {
+      return url;
+    }
+    return (await copyStanImage(env, storeId, url)) || url;
+  };
+  const photo = await rehost(content.creator.photo),
+    image = await rehost(content.product.image);
+  if (photo === content.creator.photo && image === content.product.image)
+    return content;
+  const next = {
+    ...content,
+    creator: { ...content.creator, photo },
+    product: { ...content.product, image },
+  };
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE onboarding_progress SET content_json=? WHERE owner_id=?",
+    ).bind(JSON.stringify(next), ownerId),
+    env.DB.prepare("UPDATE stores SET photo=? WHERE id=? AND photo=?").bind(
+      photo,
+      storeId,
+      content.creator.photo,
+    ),
+  ]);
+  return next;
+}
 export async function completeSetupStep(
   env: AppEnv,
   ownerId: string,
@@ -144,6 +181,13 @@ export async function completeSetupStep(
     db = database(env);
   let store = state.store,
     productId = state.product?.id || null;
+  if (store && (step === 1 || step === 2))
+    state.content = await rehostStanImages(
+      env,
+      ownerId,
+      store.id,
+      state.content,
+    );
   if (step === 1) {
     const data = storeInput.parse(state.content.creator);
     if (!store) {

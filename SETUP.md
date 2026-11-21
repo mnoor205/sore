@@ -14,7 +14,7 @@ The top-level configurations are local development; their placeholder UUIDs are 
 | Queue             | coachlane-email-staging      | 7100782177ab48938852cb678a1907dc     |
 | Dead-letter Queue | coachlane-email-dead-staging | edba16e1e48d4c50a04e043146192253     |
 
-Apply all seven migrations; `0007_branded_email_otp.sql` adds the branded-email challenge table. See [BRANDED-EMAIL.md](BRANDED-EMAIL.md) for the current sender/binding configuration. No demo data was seeded. The R2 bucket has no public endpoint enabled. Staging HTTPS origins are configured for `coachlane.getsore.me` and `coachlane-mcp-staging.warda.workers.dev`. Hosted signing secrets are already installed; branded Cloudflare email OTP is configured; external commerce/fulfillment credentials remain pending. `APP_MODE=production` prevents development login/payment simulations on staging. Do not recreate these resources.
+Apply all eight migrations; `0007_branded_email_otp.sql` adds the branded-email challenge table and `0008_import_sources.sql` tracks products imported from Stan. See [BRANDED-EMAIL.md](BRANDED-EMAIL.md) for the current sender/binding configuration. No demo data was seeded. The R2 bucket has no public endpoint enabled. Staging HTTPS origins are configured for `coachlane.getsore.me` and `coachlane-mcp-staging.warda.workers.dev`. Hosted signing secrets are already installed; branded Cloudflare email OTP is configured; external commerce/fulfillment credentials remain pending. `APP_MODE=production` prevents development login/payment simulations on staging. Do not recreate these resources.
 
 Each `env.production` still contains invalid resource/domain placeholders. Production resources are separate and unprovisioned.
 

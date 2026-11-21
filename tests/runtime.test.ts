@@ -76,6 +76,84 @@ async function mcp(name: string, args: unknown = {}, auth = props) {
     },
   });
 }
+const png = new Uint8Array([
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82,
+]);
+// Mirrors the shape of a real stan.store page: store data inside the RSC flight payload,
+// with the user object referenced from a separate row.
+function stanFixture() {
+  const user = {
+    username: "coachjo",
+    full_name: "Coach Jo",
+    bio: "  Helping new coaches   find clients ",
+    user_image: "https://assets.stanwith.me/live/user_profile/jo.png",
+    data: {
+      currency: "USD",
+      socials: {
+        instagram: "coachjo",
+        youtube: "https://www.youtube.com/@coachjo",
+        mail_to: "jo@example.test",
+      },
+    },
+  };
+  const page = (
+    order: number,
+    product: Record<string, unknown>,
+    extra = {},
+  ) => ({
+    page_id: order,
+    type: product.type,
+    order,
+    status: 2,
+    data: { product, ...extra },
+  });
+  const storeData = {
+    user: "$13:0:props:user",
+    store: {
+      pages: [
+        page(2, {
+          id: 11,
+          type: "link",
+          title: "Work with me",
+          description: "",
+          image: "https://assets.stanwith.me/graphics/device/link.png",
+          price: { amount: 0, currency: "USD" },
+          link: { url: "https://coachjo.example.test/apply" },
+        }),
+        page(
+          1,
+          {
+            id: 10,
+            type: "digital-download",
+            title: "Client Finder Workbook",
+            description:
+              "<p>Find clients &amp; keep them.</p><ul><li>12 pages</li><li>Templates</li></ul><script>alert(1)</script>",
+            image: "https://assets.stanwith.me/live/msc/1/cover.png",
+            price: { amount: 27.5, currency: "USD" },
+          },
+          { submit_title: "Get My Workbook" },
+        ),
+        page(3, {
+          id: 12,
+          type: "meeting",
+          title: "Strategy call",
+          description: "45 minutes",
+          image: "",
+          price: { amount: 150, currency: "USD" },
+        }),
+        { ...page(4, { id: 13, type: "link", title: "Hidden" }), status: 1 },
+      ],
+    },
+  };
+  const flight =
+    "13:" +
+    JSON.stringify([["$", "$L3e", null, { user }]]) +
+    "\n14:" +
+    JSON.stringify([["$", "$L3f", null, { storeData }]]) +
+    "\n";
+  const half = Math.floor(flight.length / 2);
+  return `<html><body><script>self.__next_f.push([1,${JSON.stringify(flight.slice(0, half))}])</script><script>self.__next_f.push([1,${JSON.stringify(flight.slice(half))}])</script></body></html>`;
+}
 beforeAll(async () => {
   mkdirSync("artifacts", { recursive: true });
   await build({
@@ -125,6 +203,16 @@ beforeAll(async () => {
             ),
             { headers: { "Content-Type": "application/json" } },
           );
+        if (new URL(req.url).hostname === "stan.store")
+          return new URL(req.url).pathname === "/coachjo"
+            ? new Response(stanFixture(), {
+                headers: { "Content-Type": "text/html" },
+              })
+            : new Response("Not found", { status: 404 });
+        if (new URL(req.url).hostname === "assets.stanwith.me")
+          return new Response(png, {
+            headers: { "Content-Type": "image/png" },
+          });
         if (new URL(req.url).hostname === "api.resend.com") {
           providerCalls++;
           return new Response(
@@ -151,7 +239,9 @@ beforeAll(async () => {
       "\n" +
       readFileSync("migrations/0005_guided_setup_and_drafts.sql", "utf8") +
       "\n" +
-      readFileSync("migrations/0006_cloudflare_email_auth.sql", "utf8"),
+      readFileSync("migrations/0006_cloudflare_email_auth.sql", "utf8") +
+      "\n" +
+      readFileSync("migrations/0008_import_sources.sql", "utf8"),
   });
 }, 60000);
 beforeEach(async () => {
@@ -160,7 +250,7 @@ beforeEach(async () => {
   stripeSession = {};
   stripeResponses = {};
   await call("init", {
-    sql: `DELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
+    sql: `DELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM import_sources;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
   });
 });
 afterAll(async () => {
@@ -1474,5 +1564,167 @@ describe("Cloudflare email authentication", () => {
     expect(
       (await call("email-auth-session", { session: expired })).status,
     ).toBe(401);
+  });
+});
+describe("Stan storefront import", () => {
+  it("previews a Stan store without writing anything", async () => {
+    const r = await call("stan-preview", {
+      storeId: "a",
+      url: "https://stan.store/coachjo?utm_source=ig",
+    });
+    expect(r.status).toBe(200);
+    expect(r.data).toMatchObject({
+      handle: "coachjo",
+      name: "Coach Jo",
+      bio: "Helping new coaches find clients",
+      supportEmail: "jo@example.test",
+      currency: "usd",
+      socials: {
+        instagram: "https://www.instagram.com/coachjo",
+        youtube: "https://www.youtube.com/@coachjo",
+      },
+      imported: [],
+    });
+    expect(
+      r.data.products.map((p: any) => [
+        p.title,
+        p.kind,
+        p.deliveryType,
+        p.price,
+      ]),
+    ).toEqual([
+      ["Client Finder Workbook", "resource", "file", 2750],
+      ["Work with me", "link", "url", 0],
+      ["Strategy call", "resource", "url", 15000],
+    ]);
+    const workbook = r.data.products[0];
+    expect(workbook.description).toBe(
+      "Find clients & keep them.\n• 12 pages\n• Templates",
+    );
+    expect(workbook.buttonLabel).toBe("Get My Workbook");
+    expect(r.data.products[1].image).toBe("");
+    expect(
+      await query("SELECT id FROM products WHERE store_id='a'"),
+    ).toHaveLength(2);
+  });
+  it("rejects non-Stan addresses and missing stores", async () => {
+    expect(
+      (await call("stan-preview", { url: "https://evil.example.test/coachjo" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await call("stan-preview", { url: "stan.store/nobody" })).status,
+    ).toBe(404);
+  });
+  it("imports selected products as private drafts and skips re-imports", async () => {
+    const input = {
+      url: "@coachjo",
+      productIds: ["10", "11", "12"],
+      profile: true,
+    };
+    const r = await call("stan-import", { storeId: "a", input });
+    expect(r.status).toBe(200);
+    expect(r.data.created).toHaveLength(3);
+    expect(r.data.profileUpdated).toBe(true);
+    const rows = await query(
+      "SELECT title,state,price,kind,delivery_type,delivery_url,image,draft_source FROM products WHERE store_id='a' AND draft_source='stan' ORDER BY position",
+    );
+    expect(rows.map((p: any) => [p.title, p.state, p.price, p.kind])).toEqual([
+      ["Client Finder Workbook", "draft", 2750, "resource"],
+      ["Work with me", "draft", 0, "link"],
+      ["Strategy call", "draft", 15000, "resource"],
+    ]);
+    expect(rows[0].image).toMatch(/^\/api\/media\//);
+    expect(rows[1].delivery_url).toBe("https://coachjo.example.test/apply");
+    const assetRows = await query(
+      "SELECT purpose,ready,type FROM assets WHERE store_id='a' AND purpose='image'",
+    );
+    expect(assetRows).toHaveLength(2);
+    expect(
+      assetRows.every((a: any) => a.ready === 1 && a.type === "image/png"),
+    ).toBe(true);
+    const store = (
+      await query("SELECT bio,photo,socials FROM stores WHERE id='a'")
+    )[0];
+    expect(store.bio).toBe("Helping new coaches find clients");
+    expect(store.photo).toMatch(/^\/api\/media\//);
+    expect(JSON.parse(store.socials).instagram).toBe(
+      "https://www.instagram.com/coachjo",
+    );
+    const again = await call("stan-import", { storeId: "a", input });
+    expect(again.data.created).toHaveLength(0);
+    expect(again.data.skipped.map((s: any) => s.reason)).toEqual([
+      "Already imported",
+      "Already imported",
+      "Already imported",
+    ]);
+    expect(
+      (await call("stan-preview", { storeId: "a", url: "coachjo" })).data
+        .imported,
+    ).toHaveLength(3);
+    // Another tenant importing the same Stan store is unaffected.
+    const other = await call("stan-import", {
+      storeId: "b",
+      input: { url: "coachjo", productIds: ["11"] },
+    });
+    expect(other.data.created).toHaveLength(1);
+  });
+  it("never overwrites profile fields the creator already filled in", async () => {
+    await query(
+      "UPDATE stores SET bio='My own bio', socials='{\"instagram\":\"https://www.instagram.com/mine\"}' WHERE id='a'",
+    );
+    await call("stan-import", {
+      storeId: "a",
+      input: { url: "coachjo", productIds: [], profile: true },
+    });
+    const store = (
+      await query("SELECT bio,socials FROM stores WHERE id='a'")
+    )[0];
+    expect(store.bio).toBe("My own bio");
+    expect(JSON.parse(store.socials)).toEqual({
+      instagram: "https://www.instagram.com/mine",
+      youtube: "https://www.youtube.com/@coachjo",
+    });
+  });
+  it("onboarding copies Stan-hosted images into the creator's own storage", async () => {
+    let s = (await call("setup-load", { ownerId: "stan_owner" })).data;
+    const photo =
+      "https://assets.stanwith.me/live/user_profile/jo.png/webp/433x0/85/jo.webp";
+    const c = {
+      ...s.content,
+      creator: {
+        ...s.content.creator,
+        name: "Coach Jo",
+        slug: "coach-jo",
+        supportEmail: "jo@example.test",
+        photo,
+      },
+      product: {
+        ...s.content.product,
+        title: "Client Finder Workbook",
+        image:
+          "https://assets.stanwith.me/live/msc/1/cover.png/webp/1200x0/100/cover.webp",
+        deliveryUrl: "https://example.test/workbook",
+      },
+    };
+    s = (
+      await call("setup-save", {
+        ownerId: "stan_owner",
+        input: { expectedVersion: s.version, step: 1, content: c },
+      })
+    ).data;
+    s = (await call("setup-step", { ownerId: "stan_owner", step: 1 })).data;
+    // The store did not exist before step 1, so the photo is copied on the next step.
+    expect(s.store.photo).toBe(photo);
+    s = (await call("setup-step", { ownerId: "stan_owner", step: 2 })).data;
+    expect(s.content.creator.photo).toMatch(/^\/api\/media\//);
+    expect(s.store.photo).toBe(s.content.creator.photo);
+    expect(s.product.image).toMatch(/^\/api\/media\//);
+    expect(
+      await query(
+        "SELECT id FROM assets WHERE store_id=? AND purpose='image' AND ready=1",
+        [s.store.id],
+      ),
+    ).toHaveLength(2);
   });
 });
