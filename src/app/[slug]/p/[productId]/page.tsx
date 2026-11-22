@@ -7,6 +7,7 @@ import { database } from "@/lib/db";
 import { products } from "@/lib/schema";
 import { getStore, publicProduct } from "@/lib/catalog";
 import Storefront from "@/components/storefront";
+import { theme } from "@/lib/storefront-theme";
 export const dynamic = "force-dynamic";
 export default async function Page({
   params,
@@ -55,6 +56,7 @@ export default async function Page({
         socials: JSON.parse(store.socials),
         demo: !!store.demo,
         stylePreset: store.stylePreset,
+        theme: theme(store.themeJson),
       }}
       trackingEnabled={!!store.trackingEnabled}
       products={[forPublicProduct(p)]}

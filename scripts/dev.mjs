@@ -11,6 +11,9 @@ const child = spawn(
   [
     "node_modules/wrangler/bin/wrangler.js",
     "dev",
+    // SORE_REMOTE_AI=1 connects the storefront AI editor to the real AI binding
+    // (requires `wrangler login`). Otherwise everything, including D1/R2, stays local.
+    ...(process.env.SORE_REMOTE_AI === "1" ? [] : ["--local"]),
     "--ip",
     host,
     "--port",
@@ -20,7 +23,9 @@ const child = spawn(
     stdio: "inherit",
     env: {
       ...process.env,
-      XDG_CONFIG_HOME: "/tmp/coachlane-config",
+      ...(process.env.SORE_REMOTE_AI === "1"
+        ? {}
+        : { XDG_CONFIG_HOME: "/tmp/coachlane-config" }),
       WRANGLER_SEND_METRICS: "false",
     },
   },
