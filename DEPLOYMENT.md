@@ -5,6 +5,14 @@
 - MCP resource discovery: https://mcp.getsore.me/.well-known/oauth-protected-resource/mcp
 - Email Worker: `coachlane-email-staging`, with workers.dev disabled, a Queue consumer and five-minute cron.
 
+## Founding lifetime payment links + Stripe Sore sandbox — November 22, 2026
+
+Deployed app version `f57fc8c2-fd49-4502-a29c-6b863860782b` (previous: `a1b13370-5c5a-4bd7-a87d-bef734d6bb0b`) from the merge of `t3/stripe-checkout-price-tiers` into `main`. Founding lifetime access is now sold through Stripe Payment Links: one link per price tier ($99, +$10), each capped at 5 completed checkouts, so Stripe retires a tier as it sells out. Homepage and dashboard buttons go through `/lifetime`, which redirects to the current tier's link. Migration `0012_lifetime_payment_links.sql` was applied to `coachlane-staging` first.
+
+Staging Stripe moved to the **Sore sandbox** (`acct_1UdixZLoa6oioieG`): `STRIPE_SECRET_KEY` and both webhook signing secrets were replaced, and the product/publishable key vars now point at that sandbox (see SETUP.md). The old test account's webhooks are disabled. One unpaid billing record's stale customer ID was cleared.
+
+Validation: TypeScript, 91 service tests and 16 bundled-app tests against the staging build. Live checks: `/` quotes $99 with 5 left and $109 next, `/lifetime` returns 303 to the tier-0 link (`plink_1UegvULoa6oioieGMRFzD6w7`, limit 5, created on first visit), `/sign-up?lifetime=paid` shows the payment-received notice, and `/api/workspace` returns 401 signed out. Signed test events were accepted on both webhooks (and a wrongly signed one rejected). No test purchase has been completed through a payment link yet. The MCP and email Workers were not redeployed.
+
 ## Custom storefronts + analytics merge — November 22, 2026
 
 Merged `origin/main` (storefront analytics, visit reporting) into `t3/storefront-ai-manual-editor` and deployed app version `a52d4061-116a-46e4-8d0e-0c5bfbde1812` to `coachlane-staging` (getsore.me). This restores the analytics release that version `67ea1ae6` (deployed from the branch before the merge) had replaced. No new migrations; staging has 0001–0011 from both lines. 88 service and 16 bundled-app tests pass.
