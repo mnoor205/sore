@@ -1,4 +1,3 @@
-import { lifetimeCheckoutPath } from "./lifetime-checkout";
 import { z } from "zod";
 import type { AppEnv } from "./env";
 import {
@@ -215,7 +214,6 @@ export async function completeEmailCode(
     !(await env.DB.prepare("SELECT id FROM stores WHERE owner_id=?")
       .bind(ownerId)
       .first()) &&
-    returnTo !== lifetimeCheckoutPath &&
     returnTo !== "/onboarding"
   )
     returnTo = "/onboarding";

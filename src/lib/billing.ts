@@ -96,8 +96,6 @@ export async function billingCheckout(
     );
   const product = env.STRIPE_LTD_PRODUCT_ID;
   const price = env.STRIPE_RECURRING_PRICE_ID;
-  if (!env.STRIPE_BILLING_WEBHOOK_SECRET)
-    throw new AppError("Billing checkout is temporarily unavailable.", 503);
   if (kind === "lifetime" ? !product : !price)
     throw new AppError(
       kind === "lifetime"
@@ -136,24 +134,19 @@ export async function billingCheckout(
   }
   const reservation = id();
   const ladder = ladderConfig(env);
-  const expiresAt = Math.floor(now() / 1000) + 31 * 60;
   // The founding price is locked per reservation from completed founding purchases
   // (the same count the homepage shows), so checkout never differs from the quote.
   // The cap separately counts active grants plus open reservations.
   const reserved = await env.DB.prepare(
     `INSERT INTO billing_sessions (id,store_id,kind,status,expires_at,created_at,grant_json,amount)
      SELECT ?,?,?,'pending',?,?,?,CASE WHEN ?='lifetime' THEN CAST(? AS INTEGER) + CAST(? AS INTEGER) * ((${PAID_SQL}) / CAST(? AS INTEGER)) END
-     WHERE ?<>'lifetime' OR ((${TAKEN_SQL}) < ? AND NOT EXISTS (
-       SELECT 1 FROM billing_sessions WHERE store_id=? AND kind='lifetime' AND status='pending' AND expires_at>?
-     ) AND NOT EXISTS (
-       SELECT 1 FROM entitlements WHERE store_id=? AND kind='lifetime' AND status='active'
-     ))`,
+     WHERE ?<>'lifetime' OR (${TAKEN_SQL}) < ?`,
   )
     .bind(
       reservation,
       store.id,
       kind,
-      expiresAt * 1000,
+      now() + 1800000,
       now(),
       JSON.stringify(limits(env)),
       kind,
@@ -162,30 +155,10 @@ export async function billingCheckout(
       ladder.every,
       kind,
       ladder.limit,
-      store.id,
-      now(),
-      store.id,
     )
     .run();
-  if (!reserved.meta.changes) {
-    const pending = await env.DB.prepare(
-      "SELECT session_id FROM billing_sessions WHERE store_id=? AND kind='lifetime' AND status='pending' AND expires_at>? ORDER BY created_at DESC LIMIT 1",
-    )
-      .bind(store.id, now())
-      .first<{ session_id: string | null }>();
-    if (pending?.session_id) {
-      const session = await stripe.checkout.sessions.retrieve(
-        pending.session_id,
-      );
-      if (session.status === "open" && session.url) return { url: session.url };
-    }
-    if (pending)
-      throw new AppError(
-        "Your checkout is being processed. Check billing or try again shortly.",
-        409,
-      );
+  if (!reserved.meta.changes)
     throw new AppError("The founding lifetime offer is fully reserved");
-  }
   try {
     const amount =
       kind === "lifetime"
@@ -226,7 +199,7 @@ export async function billingCheckout(
                 metadata: { store_id: store.id, kind: "lifetime" },
               },
             }),
-        expires_at: expiresAt,
+        expires_at: Math.floor(now() / 1000) + 1800,
         success_url: `${env.APP_URL}/dashboard/billing?completed=1`,
         cancel_url: `${env.APP_URL}/dashboard/billing`,
         ...(env.PLATFORM_TAX_ENABLED === "true"
@@ -290,12 +263,7 @@ export async function foundingOffer(env: AppEnv) {
       Math.max(0, ladder.limit - taken),
     ),
     remaining: Math.max(0, ladder.limit - taken),
-    available:
-      !!(
-        env.STRIPE_LTD_PRODUCT_ID &&
-        env.STRIPE_SECRET_KEY &&
-        env.STRIPE_BILLING_WEBHOOK_SECRET
-      ) && taken < ladder.limit,
+    available: !!env.STRIPE_LTD_PRODUCT_ID && taken < ladder.limit,
   };
 }
 export async function syncSubscription(env: AppEnv, subscriptionId: string) {

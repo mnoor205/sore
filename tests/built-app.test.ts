@@ -192,7 +192,7 @@ it("serves the actual OpenNext build and its static assets in workerd", async ()
   const homeHtml = await home.text();
   expect(homeHtml).toContain("into your next sale.");
   expect(homeHtml).toContain("ILLUSTRATIVE DEMO");
-  expect(homeHtml).toContain("Checkout unavailable");
+  expect(homeHtml).toContain("Checkout is not open yet.");
   const script = homeHtml.match(/src="([^\"]+\.js[^\"]*)"/);
   expect(script).toBeTruthy();
   const clientAsset = await request(script![1]);

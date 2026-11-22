@@ -1,4 +1,3 @@
-import { lifetimeCheckoutPath } from "./lifetime-checkout";
 import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { database } from "./db";
@@ -54,8 +53,5 @@ export async function signedInDestination(env: AppEnv, requested?: string) {
   const store = await env.DB.prepare("SELECT id FROM stores WHERE owner_id=?")
     .bind(ownerId)
     .first();
-  const destination = loginDestination(requested, env.APP_URL);
-  return store || destination === lifetimeCheckoutPath
-    ? destination
-    : "/onboarding";
+  return store ? loginDestination(requested, env.APP_URL) : "/onboarding";
 }

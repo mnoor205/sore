@@ -69,29 +69,7 @@ beforeAll(async () => {
           return new Response("ok");
         },
       },
-      outboundService: async (req) => {
-        if (req.url === "https://api.stripe.com/v1/customers")
-          return Response.json({ id: "cus_homepage" });
-        if (req.url === "https://api.stripe.com/v1/checkout/sessions") {
-          const params = new URLSearchParams(await req.text());
-          if (
-            params.get("line_items[0][price_data][unit_amount]") === "9900" &&
-            params.get("line_items[0][price_data][product]") ===
-              "prod_lifetime" &&
-            params.get("customer") === "cus_homepage" &&
-            params.get("metadata[reservation]")
-          )
-            return Response.json({
-              id: "cs_homepage",
-              url: "https://checkout.stripe.com/fixture",
-            });
-        }
-        return new Response("Unexpected request", { status: 400 });
-      },
       bindings: {
-        STRIPE_SECRET_KEY: "sk_test_fixture",
-        STRIPE_LTD_PRODUCT_ID: "prod_lifetime",
-        STRIPE_BILLING_WEBHOOK_SECRET: "whsec_fixture",
         APP_MODE: "production",
         APP_URL: origin,
         MCP_URL: "https://mcp.example.test",
@@ -281,65 +259,4 @@ it("does not treat expired or fabricated cookies as authenticated visits", async
     expect(await signin.text()).toContain("Send sign-in code");
     expect((await request("/api/setup", undefined, cookie)).status).toBe(401);
   }
-});
-
-it("continues a homepage lifetime purchase through email verification, profile creation and hosted checkout", async () => {
-  const buy = "/onboarding?checkout=lifetime";
-  const page = await (await request("/")).text();
-  expect(page.split('href="' + buy + '"')).toHaveLength(4);
-  const guest = await request(buy);
-  expect(guest.status).toBe(307);
-  const signUp = new URL(guest.headers.get("location")!, origin);
-  expect(signUp.pathname).toBe("/sign-up");
-  const returnTo = signUp.searchParams.get("redirect_url");
-  const sent = await request("/auth/email", {
-    action: "request",
-    email: "buyer@example.test",
-    returnTo,
-  });
-  const otp = sent.headers.getSetCookie()[0].split(";")[0];
-  const code = messages.at(-1).text.match(/sign-in code: (\d{6})/)[1];
-  const verified = await request(
-    "/auth/email",
-    { action: "verify", code },
-    otp,
-  );
-  expect(await verified.json()).toEqual({ url: origin + buy });
-  const session = verified.headers
-    .getSetCookie()
-    .find((v) => v.startsWith("__Host-coachlane_session="))!
-    .split(";")[0];
-  const setup = (await (
-    await request("/api/setup", undefined, session)
-  ).json()) as any;
-  const saved = await request(
-    "/api/setup",
-    {
-      step: 1,
-      expectedVersion: setup.version,
-      content: {
-        creator: {
-          slug: "homepage-buyer",
-          name: "Homepage Buyer",
-          supportEmail: "buyer@example.test",
-        },
-      },
-    },
-    session,
-  );
-  expect(saved.status).toBe(200);
-  expect((await request("/api/setup/step", { step: 1 }, session)).status).toBe(
-    200,
-  );
-  expect(await (await request(buy, undefined, session)).text()).toContain(
-    "Continue to Stripe Checkout",
-  );
-  const checkout = await request(
-    "/api/billing/checkout",
-    { kind: "lifetime" },
-    session,
-  );
-  expect(await checkout.json()).toEqual({
-    url: "https://checkout.stripe.com/fixture",
-  });
 });

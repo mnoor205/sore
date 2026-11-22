@@ -8,7 +8,7 @@ export default function FoundingPriceChange({
     return (
       <p className="sf-unavailable">Live pricing is temporarily unavailable.</p>
     );
-  const claimed = quote.every - quote.remaining;
+  const claimed = 5 - quote.remaining;
   return (
     <div className="sf-price-change">
       <div className="sf-price-change-label">
@@ -21,16 +21,13 @@ export default function FoundingPriceChange({
       <div
         className="sf-buyer-slots"
         role="img"
-        aria-label={`${claimed} of ${quote.every} purchases completed in this price tier. ${quote.remaining} remaining before the price increases to ${quote.nextPrice}.`}
+        aria-label={`${claimed} of 5 purchases completed in this price tier. ${quote.remaining} remaining before the price increases to ${quote.nextPrice}.`}
       >
-        {Array.from({ length: quote.every }, (_, index) => (
+        {Array.from({ length: 5 }, (_, index) => (
           <span key={index} data-claimed={index < claimed} />
         ))}
       </div>
-      <p>
-        Every {quote.every} buyers adds ${quote.step}. Get in at the lower
-        price.
-      </p>
+      <p>Every 5 buyers adds $10. Get in at the lower price.</p>
     </div>
   );
 }
