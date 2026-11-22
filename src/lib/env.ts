@@ -41,7 +41,6 @@ export type AppEnv = {
   STRIPE_RECURRING_PRICE_ID?: string;
   STRIPE_LTD_PRODUCT_ID?: string;
   PLATFORM_FEE_BPS?: string;
-  PLATFORM_TAX_ENABLED?: string;
   LTD_PRICE_CENTS?: string;
   LTD_STEP_CENTS?: string;
   LTD_STEP_EVERY?: string;

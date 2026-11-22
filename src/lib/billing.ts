@@ -157,12 +157,9 @@ export async function billingCheckout(
         expires_at: Math.floor(now() / 1000) + 1800,
         success_url: `${env.APP_URL}/dashboard/billing?completed=1`,
         cancel_url: `${env.APP_URL}/dashboard/billing`,
-        ...(env.PLATFORM_TAX_ENABLED === "true"
-          ? {
-              automatic_tax: { enabled: true },
-              customer_update: { address: "auto" as const },
-            }
-          : {}),
+        // Stripe Tax adds sales tax wherever the account has a registration.
+        automatic_tax: { enabled: true },
+        customer_update: { address: "auto" },
       },
       { idempotencyKey: `billing-${reservation}` },
     );

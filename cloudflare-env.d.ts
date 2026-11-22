@@ -22,7 +22,6 @@ interface __BaseEnv_CloudflareEnv {
 	MAX_STORAGE_MB: "500";
 	WORKER_SELF_REFERENCE: Fetcher /* coachlane */ | Fetcher /* coachlane-staging */ | Service<typeof import("./.open-next/worker").default>;
 	LOGIN_EMAIL?: SendEmail;
-	PLATFORM_TAX_ENABLED?: "false";
 	STRIPE_LTD_PRODUCT_ID?: "prod_VfOHRGap641ipJ";
 	STRIPE_PUBLISHABLE_KEY?: "pk_test_51UdixZLoa6oioieG0kKhWen77VZ6AWECpI8MsmSWMNa9w6YFkCk8SKfVqL0B29Se8yfnU0wKWeVm0BQLoiu4bMCo00MSa1wldh";
 	ACCESS_ISSUER?: "https://polished-butterfly-f3b5.cloudflareaccess.com";
@@ -75,7 +74,6 @@ declare namespace Cloudflare {
 		MAX_PRODUCTS: "50";
 		MAX_UPLOAD_MB: "25";
 		MAX_STORAGE_MB: "500";
-		PLATFORM_TAX_ENABLED: "false";
 		STRIPE_LTD_PRODUCT_ID: "prod_VfOHRGap641ipJ";
 		STRIPE_PUBLISHABLE_KEY: "pk_test_51UdixZLoa6oioieG0kKhWen77VZ6AWECpI8MsmSWMNa9w6YFkCk8SKfVqL0B29Se8yfnU0wKWeVm0BQLoiu4bMCo00MSa1wldh";
 		ACCESS_ISSUER: "https://polished-butterfly-f3b5.cloudflareaccess.com";
@@ -91,7 +89,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "ANALYTICS_DATASET" | "APP_MODE" | "APP_URL" | "MCP_URL" | "PLATFORM_FEE_BPS" | "LTD_PRICE_CENTS" | "LTD_STEP_CENTS" | "LTD_STEP_EVERY" | "LTD_LIMIT" | "MAX_PRODUCTS" | "MAX_UPLOAD_MB" | "MAX_STORAGE_MB" | "PLATFORM_TAX_ENABLED" | "STRIPE_LTD_PRODUCT_ID" | "STRIPE_PUBLISHABLE_KEY" | "ACCESS_ISSUER" | "ACCESS_AUDIENCE" | "AUTH_PROVIDER" | "OTP_FROM">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "ANALYTICS_DATASET" | "APP_MODE" | "APP_URL" | "MCP_URL" | "PLATFORM_FEE_BPS" | "LTD_PRICE_CENTS" | "LTD_STEP_CENTS" | "LTD_STEP_EVERY" | "LTD_LIMIT" | "MAX_PRODUCTS" | "MAX_UPLOAD_MB" | "MAX_STORAGE_MB" | "STRIPE_LTD_PRODUCT_ID" | "STRIPE_PUBLISHABLE_KEY" | "ACCESS_ISSUER" | "ACCESS_AUDIENCE" | "AUTH_PROVIDER" | "OTP_FROM">> {}
 }
 declare module "*.txt" {
 	const value: string;

@@ -5,6 +5,10 @@
 - MCP resource discovery: https://mcp.getsore.me/.well-known/oauth-protected-resource/mcp
 - Email Worker: `coachlane-email-staging`, with workers.dev disabled, a Queue consumer and five-minute cron.
 
+## Always-on platform sales tax — November 22, 2026
+
+Deployed app version `ed112400-08d9-4355-b0a8-bb1df966f6de` (previous: `f57fc8c2-fd49-4502-a29c-6b863860782b`). Removed the `PLATFORM_TAX_ENABLED` switch: lifetime payment links and subscription checkout always request Stripe automatic tax, which adds sales tax only where the Sore sandbox has a tax registration (none yet, so checkout still shows $0 tax). The existing $99 tier link `plink_1UegvULoa6oioieGMRFzD6w7` was updated in Stripe to enable automatic tax. 91 service tests and 16 bundled-app tests passed; `/` returns 200 and `/lifetime` still redirects to the $99 link.
+
 ## Founding lifetime payment links + Stripe Sore sandbox — November 22, 2026
 
 Deployed app version `f57fc8c2-fd49-4502-a29c-6b863860782b` (previous: `a1b13370-5c5a-4bd7-a87d-bef734d6bb0b`) from the merge of `t3/stripe-checkout-price-tiers` into `main`. Founding lifetime access is now sold through Stripe Payment Links: one link per price tier ($99, +$10), each capped at 5 completed checkouts, so Stripe retires a tier as it sells out. Homepage and dashboard buttons go through `/lifetime`, which redirects to the current tier's link. Migration `0012_lifetime_payment_links.sql` was applied to `coachlane-staging` first.

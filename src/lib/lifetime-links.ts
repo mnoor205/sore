@@ -78,7 +78,7 @@ async function tierLink(
   const { amount, size } = tierPlan(env, tier);
   // Idempotency keys make concurrent first visitors receive the same Stripe
   // objects, so a tier can never end up with two links (and 2× the sales).
-  const key = `sore-ltd-${product}-${tier}-${amount}-${size}`;
+  const key = `sore-ltd-${product}-${tier}-${amount}-${size}-tax`;
   const metadata = {
     sore_offer: LIFETIME_OFFER,
     tier: String(tier),
@@ -102,9 +102,8 @@ async function tierLink(
       },
       inactive_message:
         "This founding price just sold out. Head back to Sore to get lifetime access at the current price.",
-      ...(env.PLATFORM_TAX_ENABLED === "true"
-        ? { automatic_tax: { enabled: true } }
-        : {}),
+      // Stripe Tax adds sales tax wherever the account has a registration.
+      automatic_tax: { enabled: true },
     },
     { idempotencyKey: `${key}-link` },
   );

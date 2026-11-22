@@ -107,7 +107,7 @@ Product-specific coupon reservations are atomic and expire when verified Checkou
 
 ## 6. Stripe: platform fees, lifetime and subscriptions
 
-The sandbox has no project founding price. Provisioning remains incomplete after tax setup was skipped. Do not invent an address, registration or tax classification. Keep `PLATFORM_TAX_ENABLED` unset/false. When the commercial setup is resumed, create platform Products and Prices independently of creator resources:
+The sandbox has no project founding price. Provisioning remains incomplete after tax setup was skipped. Do not invent an address, registration or tax classification. Sore's own checkouts (lifetime payment links and subscriptions) always use Stripe automatic tax, which adds sales tax only where the account has a tax registration (Dashboard → Tax → Registrations). When the commercial setup is resumed, create platform Products and Prices independently of creator resources:
 
 - One founding lifetime **Product** (no fixed Price). Checkout charges it with inline `price_data`, because the founding offer is a ladder: `LTD_PRICE_CENTS` (9900) plus `LTD_STEP_CENTS` (1000) for every `LTD_STEP_EVERY` (5) completed founding purchases — $99 for buyers 1–5, $109 for 6–10, and so on. Completed purchases are paid lifetime billing sessions on non-demo stores; refunds don't rewind the ladder. This is the same count the homepage quote uses.
 - A recurring price only after choosing the commercial terms. No monthly amount is assumed.
@@ -130,7 +130,7 @@ The grace policy is seven days from the first failed subscription period. Repeat
 
 `PLATFORM_FEE_BPS` is the app's transaction fee in basis points, zero by default. Stripe processing fees are additional and charged by Stripe to creators. Fee disclosure is in creator settings; no universal processor rate is invented.
 
-Creators handle product-sale tax obligations. Store-level automatic calculation is intentionally disabled in the UI; activate its D1 `tax_enabled` setting only through an operator-reviewed migration after verifying that connected account's tax category, business address and registrations. Platform billing tax is separately gated by `PLATFORM_TAX_ENABLED=true` after verifying platform registrations/settings. Neither flag means remittance is handled automatically. Consult jurisdiction-specific tax requirements before launch. Initial local currency/time zone defaults are USD/America/Chicago, configurable per store; seller country is collected during Stripe onboarding and has not been assumed as a legal business fact.
+Creators handle product-sale tax obligations. Store-level automatic calculation is intentionally disabled in the UI; activate its D1 `tax_enabled` setting only through an operator-reviewed migration after verifying that connected account's tax category, business address and registrations. Sore's own platform checkouts always request Stripe automatic tax; it only charges where the platform account has a registration. Neither means remittance is handled automatically. Consult jurisdiction-specific tax requirements before launch. Initial local currency/time zone defaults are USD/America/Chicago, configurable per store; seller country is collected during Stripe onboarding and has not been assumed as a legal business fact.
 
 ## 8. Transactional email, Queues and outbox
 
