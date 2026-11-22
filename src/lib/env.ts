@@ -1,6 +1,20 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+/** The subset of the Workers AI binding the storefront editor uses. */
+export type AiBinding = {
+  run(
+    model: string,
+    input: unknown,
+    options?: { gateway?: { id: string } },
+  ): Promise<unknown>;
+  aiGatewayLogId?: string | null;
+};
 export type AppEnv = {
   DB: D1Database;
+  /** Workers AI binding; storefront AI edits route through AI Gateway. */
+  AI?: AiBinding;
+  AI_GATEWAY_ID?: string;
+  STOREFRONT_AI_DAILY_LIMIT?: string;
+  STOREFRONT_AI_GLOBAL_DAILY_LIMIT?: string;
   FILES: R2Bucket;
   FULFILLMENT: Queue<{ id: string }>;
   APP_MODE: string;

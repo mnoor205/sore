@@ -4,7 +4,7 @@ import {
   convertV4MiniflareOptions,
   kCurrentWorker,
 } from "miniflare";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   accessIssuer,
   accessAudience,
@@ -78,19 +78,8 @@ beforeAll(async () => {
     }),
   );
   const db = await mf.getD1Database("DB");
-  await db.exec(
-    readFileSync("migrations/0001_initial.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0002_delivery_refunds_grants.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0003_setup_progress.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0004_platform_refunds.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0005_guided_setup_and_drafts.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0006_cloudflare_email_auth.sql", "utf8"),
-  );
+  for (const name of readdirSync("migrations").sort())
+    await db.exec(readFileSync("migrations/" + name, "utf8"));
   await db.exec(readFileSync("fixtures/demo.sql", "utf8"));
   const r = await request("/api/dev/session", { workspace: "demo" });
   if (r.status !== 200)
@@ -526,4 +515,133 @@ it("optional product sections render in their chosen order and public samples st
     "",
   );
   expect(paidFile.status).toBe(404);
+});
+
+it("storefront editor: AI draft and manual previews stay separate, and publish/discard work over HTTP", async () => {
+  const db = await mf.getD1Database("DB");
+  const ai = await json("/api/storefront/ai");
+  expect(ai.draft).toBeNull();
+  expect(ai.model).toBe("anthropic/claude-haiku-5.5");
+  // This test runtime has no AI binding, so chat fails clearly instead of guessing.
+  expect(ai.connected).toBe(false);
+  const chat = await request("/api/storefront/ai/chat", {
+    message: "Make it sage",
+    expectedVersion: null,
+  });
+  expect(chat.status).toBe(503);
+  // Both tabs render inside the dashboard.
+  for (const path of [
+    "/dashboard/storefront",
+    "/dashboard/storefront/manual",
+  ]) {
+    const page = await request(path, undefined, "GET");
+    expect(page.status).toBe(200);
+  }
+  // Seed an AI draft exactly as the editor stores it.
+  const workspace = await json("/api/workspace");
+  const store = workspace.store;
+  const doc = {
+    store: {
+      name: store.name,
+      bio: store.bio,
+      accent: store.accent,
+      stylePreset: store.stylePreset,
+      theme: {
+        background: "preset",
+        font: "preset",
+        corners: "preset",
+        buttons: "preset",
+        align: "center",
+        layout: "list",
+        announcement: "",
+        sectionLabel: "MADE WITH YOU IN MIND",
+        footerText: "Resources for your independent mind.",
+      },
+    },
+    products: {},
+  };
+  const draft = structuredClone(doc);
+  draft.store.theme.background = "sage";
+  draft.store.theme.announcement = "AI draft announcement";
+  await db
+    .prepare(
+      "INSERT INTO storefront_drafts (store_id,base_json,draft_json,version,created_at,updated_at) VALUES (?,?,?,1,1,1)",
+    )
+    .bind(store.id, JSON.stringify(doc), JSON.stringify(draft))
+    .run();
+  const aiPreview = await (
+    await request("/dashboard/preview?source=ai", undefined, "GET")
+  ).text();
+  expect(aiPreview).toContain("AI draft announcement");
+  expect(aiPreview).toContain("theme-bg-sage");
+  for (const source of ["manual", "live"]) {
+    const html = await (
+      await request("/dashboard/preview?source=" + source, undefined, "GET")
+    ).text();
+    expect(html).not.toContain("AI draft announcement");
+    expect(html).not.toContain("theme-bg-sage");
+  }
+  const publicBefore = await (
+    await request("/" + store.slug, undefined, "GET", "")
+  ).text();
+  expect(publicBefore).not.toContain("AI draft announcement");
+  // Manual save goes live immediately and never touches the AI draft.
+  await json(
+    "/api/store",
+    {
+      slug: store.slug,
+      name: store.name,
+      bio: "Saved by hand",
+      photo: store.photo,
+      accent: store.accent,
+      supportEmail: store.supportEmail,
+      audience: store.audience,
+      goals: store.goals,
+      whatTheySell: store.whatTheySell,
+      stylePreset: store.stylePreset,
+      currency: store.currency,
+      timezone: store.timezone,
+      socials: JSON.parse(store.socials),
+      theme: { ...doc.store.theme, footerText: "Handmade footer" },
+    },
+    "PATCH",
+  );
+  const live = await (
+    await request("/" + store.slug, undefined, "GET", "")
+  ).text();
+  expect(live).toContain("Saved by hand");
+  expect(live).toContain("Handmade footer");
+  expect(live).not.toContain("AI draft announcement");
+  const state = await json("/api/storefront/ai");
+  expect(state.draft.version).toBe(1);
+  expect(state.draft.changes).toEqual(["Background", "Announcement bar"]);
+  const published = await json("/api/storefront/ai/publish", {
+    expectedVersion: 1,
+  });
+  expect(published.changes).toEqual(["Background", "Announcement bar"]);
+  const after = await (
+    await request("/" + store.slug, undefined, "GET", "")
+  ).text();
+  expect(after).toContain("AI draft announcement");
+  expect(after).toContain("theme-bg-sage");
+  // The manual edits made while the draft was open survive publication.
+  expect(after).toContain("Saved by hand");
+  expect(after).toContain("Handmade footer");
+  // Discard with a fresh draft leaves live alone.
+  draft.store.theme.announcement = "Never published";
+  await db
+    .prepare(
+      "INSERT INTO storefront_drafts (store_id,base_json,draft_json,version,created_at,updated_at) VALUES (?,?,?,1,1,1)",
+    )
+    .bind(store.id, JSON.stringify(doc), JSON.stringify(draft))
+    .run();
+  expect((await json("/api/storefront/ai/discard", {})).discarded).toBe(true);
+  const final = await (
+    await request("/" + store.slug, undefined, "GET", "")
+  ).text();
+  expect(final).not.toContain("Never published");
+  expect(final).toContain("AI draft announcement");
+  expect(
+    (await json("/api/storefront/ai")).messages.map((m: any) => m.role),
+  ).toEqual(["event", "event"]);
 });

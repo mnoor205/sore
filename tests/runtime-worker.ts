@@ -46,6 +46,22 @@ import {
   verifyAccessIdentity,
 } from "../src/lib/email-auth";
 import { importStanStore, previewStanStore } from "../src/lib/stan-import";
+import { storefrontChat } from "../src/lib/storefront-ai";
+import {
+  discardDraft,
+  draftView,
+  messages as storefrontMessages,
+  publishDraft,
+} from "../src/lib/storefront-draft";
+async function storeRow(env: AppEnv, storeId: string) {
+  const s = await database(env)
+    .select()
+    .from(stores)
+    .where(eq(stores.id, storeId))
+    .get();
+  if (!s) throw new AppError("Store unavailable", 404);
+  return s;
+}
 export default {
   async fetch(req: Request, env: AppEnv, ctx: ExecutionContext) {
     const path = new URL(req.url).pathname;
@@ -84,6 +100,48 @@ export default {
           break;
         case "/test/stan-import":
           value = await importStanStore(env, b.storeId, b.input);
+          break;
+        case "/test/storefront-chat": {
+          // A stand-in for the Workers AI binding that records what the app sends.
+          const calls: unknown[] = [];
+          const aiEnv: AppEnv = {
+            ...env,
+            AI: b.noAi
+              ? undefined
+              : {
+                  aiGatewayLogId: "log_fixture",
+                  async run(model, input, options) {
+                    calls.push({ model, input, options });
+                    if (b.aiFail) throw new Error("gateway unavailable");
+                    return b.aiResponse;
+                  },
+                },
+          };
+          const result = await storefrontChat(
+            aiEnv,
+            await storeRow(env, b.storeId),
+            b.input,
+          );
+          value = { result, calls };
+          break;
+        }
+        case "/test/storefront-view": {
+          const view = await draftView(env, await storeRow(env, b.storeId));
+          value = {
+            ...view,
+            messages: await storefrontMessages(env, b.storeId),
+          };
+          break;
+        }
+        case "/test/storefront-publish":
+          value = await publishDraft(
+            env,
+            await storeRow(env, b.storeId),
+            b.expectedVersion,
+          );
+          break;
+        case "/test/storefront-discard":
+          value = await discardDraft(env, b.storeId);
           break;
         case "/test/init":
           await env.DB.exec(b.sql);

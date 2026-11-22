@@ -14,6 +14,12 @@ import {
 } from "lucide-react";
 import ProductSections from "./product-sections";
 import { api, Modal, money, Badge } from "./shared";
+import {
+  DEFAULT_FOOTER,
+  DEFAULT_SECTION_LABEL,
+  themeClasses,
+  type StoreTheme,
+} from "@/lib/storefront-theme";
 export type PublicStore = {
   name: string;
   slug: string;
@@ -25,6 +31,7 @@ export type PublicStore = {
   socials: Record<string, string>;
   demo: boolean;
   stylePreset?: string;
+  theme?: StoreTheme;
 };
 export type PublicProduct = {
   id: string;
@@ -45,13 +52,26 @@ export default function Storefront({
   selectedId,
   preview = false,
   privatePreview = false,
+  previewSource,
 }: {
   store: PublicStore;
   products: PublicProduct[];
   selectedId?: string;
   preview?: boolean;
   privatePreview?: boolean;
+  previewSource?: "live" | "ai" | "manual";
 }) {
+  const t = s.theme,
+    previewQuery =
+      previewSource && previewSource !== "live"
+        ? `source=${previewSource}`
+        : "",
+    previewHref = (productId?: string) => {
+      const q = [productId && `product=${productId}`, previewQuery]
+        .filter(Boolean)
+        .join("&");
+      return "/dashboard/preview" + (q ? "?" + q : "");
+    };
   const selected = products.find((p) => p.id === selectedId);
   const [choosing, setChoosing] = useState<PublicProduct | null>(null),
     [error, setError] = useState(""),
@@ -107,7 +127,8 @@ export default function Storefront({
       className={
         "public-page preset-" +
         (s.stylePreset || "studio") +
-        (selected ? " product-detail-page" : "")
+        (selected ? " product-detail-page" : "") +
+        (t ? " " + themeClasses(t) : "")
       }
       style={{ "--store-accent": s.accent } as React.CSSProperties}
     >
@@ -120,6 +141,11 @@ export default function Storefront({
         <div className="preview-strip">
           <EyeIcon />
           Private creator preview · not a live checkout · views excluded
+        </div>
+      )}
+      {t?.announcement && (
+        <div className="store-announcement" role="note">
+          {t.announcement}
         </div>
       )}
       <main className="store-container">
@@ -166,13 +192,13 @@ export default function Storefront({
           </div>
         </header>
         <div className="public-section-label">
-          <span>MADE WITH YOU IN MIND</span>
+          <span>{t ? t.sectionLabel : DEFAULT_SECTION_LABEL}</span>
           <span className="little-spark">✳</span>
         </div>
         {selected && (
           <a
             className="back-to-store"
-            href={privatePreview ? "/dashboard/preview" : `/${s.slug}`}
+            href={privatePreview ? previewHref() : `/${s.slug}`}
           >
             All resources from {s.name}
           </a>
@@ -207,7 +233,7 @@ export default function Storefront({
                     <Link
                       href={
                         privatePreview
-                          ? `/dashboard/preview?product=${p.id}`
+                          ? previewHref(p.id)
                           : `/${s.slug}/p/${p.id}${preview ? "?preview=1" : ""}`
                       }
                       className="public-cover"
@@ -286,7 +312,7 @@ export default function Storefront({
           </p>
         )}
         <footer className="store-footer">
-          <p>Resources for your independent mind.</p>
+          <p>{t ? t.footerText : DEFAULT_FOOTER}</p>
           <div>
             <Link href={`/privacy?store=${s.slug}`}>Privacy</Link>
             <span>·</span>

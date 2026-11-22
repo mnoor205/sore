@@ -27,6 +27,12 @@
     "MAX_PRODUCTS": "50",
     "MAX_UPLOAD_MB": "25",
     "MAX_STORAGE_MB": "500",
+    "AI_GATEWAY_ID": "default",
+  },
+  // Storefront AI editor: Claude Haiku 5.5 through Cloudflare AI Gateway.
+  // The AI binding always runs remotely, also under `wrangler dev`.
+  "ai": {
+    "binding": "AI",
   },
   "d1_databases": [
     {
@@ -71,6 +77,10 @@
         "MAX_PRODUCTS": "50",
         "MAX_UPLOAD_MB": "25",
         "MAX_STORAGE_MB": "500",
+        "AI_GATEWAY_ID": "default",
+      },
+      "ai": {
+        "binding": "AI",
       },
       "d1_databases": [
         {
@@ -102,6 +112,63 @@
       ],
       "workers_dev": false,
     },
+    // Isolated public demo of the storefront editor with fictional data only.
+    // APP_MODE=development enables the demo-workspace sign-in; no real payments,
+    // email or creator accounts. Never point this at staging/production data.
+    "demo": {
+      "name": "coachlane-editor-demo",
+      "vars": {
+        "APP_MODE": "development",
+        "APP_URL": "https://coachlane-editor-demo.warda.workers.dev",
+        "MCP_URL": "https://mcp.getsore.me",
+        "PLATFORM_FEE_BPS": "0",
+        "LTD_PRICE_CENTS": "9900",
+        "LTD_STEP_CENTS": "1000",
+        "LTD_STEP_EVERY": "5",
+        "LTD_LIMIT": "100",
+        "MAX_PRODUCTS": "50",
+        "MAX_UPLOAD_MB": "25",
+        "MAX_STORAGE_MB": "500",
+        "PLATFORM_TAX_ENABLED": "false",
+        "AI_GATEWAY_ID": "default",
+        "STOREFRONT_AI_DAILY_LIMIT": "60",
+        "STOREFRONT_AI_GLOBAL_DAILY_LIMIT": "400",
+      },
+      "ai": {
+        "binding": "AI",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "coachlane-editor-demo",
+          "database_id": "a711b058-274e-4b5f-8b2e-2305d5878bb5",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "FILES",
+          "bucket_name": "coachlane-private-demo",
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "FULFILLMENT",
+            "queue": "coachlane-email-demo",
+          },
+        ],
+      },
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "coachlane-editor-demo",
+        },
+      ],
+      "workers_dev": true,
+      "preview_urls": false,
+      "minify": true,
+    },
     "staging": {
       "name": "coachlane-staging",
       "send_email": [
@@ -129,6 +196,10 @@
         "ACCESS_AUDIENCE": "7bd5f246386c0e56384f7bdd5a11f26397ce7d2eb70879b490a0016b14d0ccdc",
         "AUTH_PROVIDER": "email",
         "OTP_FROM": "login@getsore.me",
+        "AI_GATEWAY_ID": "default",
+      },
+      "ai": {
+        "binding": "AI",
       },
       "d1_databases": [
         {

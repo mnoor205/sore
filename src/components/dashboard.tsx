@@ -45,7 +45,8 @@ import StripeAccount, { CountrySelect } from "./stripe-account";
 import type { StripeCountry } from "@/lib/stripe-countries";
 import LaunchHome from "./launch-home";
 import ProductEditor, { type Product } from "./product-editor";
-import StoreForm, { type Store } from "./store-form";
+import { type Store } from "./store-form";
+import StorefrontEditor from "./storefront-editor";
 import StanImport from "./stan-import";
 import { api, Badge, Empty, Modal, money, Spinner } from "./shared";
 type Summary = {
@@ -135,7 +136,8 @@ const settings = [
 const descriptions: Record<string, string> = {
   overview: "Your products, sales, and next steps.",
   products: "Manage what you sell.",
-  storefront: "Your profile, your style, your bio link.",
+  storefront:
+    "Describe changes to the AI or edit directly, then preview on mobile and desktop.",
   customers: "Everyone who bought or downloaded from you.",
   orders: "Payments and delivery, in one place.",
   discounts: "Create an offer for your next promotion.",
@@ -144,7 +146,13 @@ const descriptions: Record<string, string> = {
   billing: "Your plan and payment details.",
   settings: "Preferences and store details.",
 };
-export default function Dashboard({ section }: { section: string }) {
+export default function Dashboard({
+  section,
+  subsection,
+}: {
+  section: string;
+  subsection?: string;
+}) {
   const router = useRouter();
   const [w, setW] = useState<Workspace | null>(null),
     [error, setError] = useState(""),
@@ -979,43 +987,15 @@ export default function Dashboard({ section }: { section: string }) {
             </>
           )}
           {section === "storefront" && (
-            <div className="storefront-layout">
-              <section className="panel settings-panel">
-                <StoreForm
-                  store={s}
-                  onSaved={() => {
-                    load();
-                    setToast("Your storefront has been updated.");
-                  }}
-                />
-              </section>
-              <aside className="sticky-preview">
-                <div className="preview-label">
-                  <span>YOUR STOREFRONT</span>
-                  <button
-                    className="icon-button"
-                    aria-label="Copy storefront link"
-                    onClick={() => copy(window.location.origin + "/" + s.slug)}
-                  >
-                    <Copy size={16} />
-                  </button>
-                </div>
-                <div className="phone-preview">
-                  <iframe
-                    title="Mobile storefront preview"
-                    src="/dashboard/preview"
-                    loading="lazy"
-                  />
-                </div>
-                <button
-                  className="button outline wide"
-                  onClick={() => setPreview(true)}
-                >
-                  <Eye size={16} />
-                  Open full preview
-                </button>
-              </aside>
-            </div>
+            <StorefrontEditor
+              store={s}
+              initialTab={subsection === "manual" ? "manual" : "ai"}
+              onSaved={() => {
+                load();
+                setToast("Your storefront has been updated.");
+              }}
+              onCopyLink={() => copy(window.location.origin + "/" + s.slug)}
+            />
           )}
           {["customers", "orders"].includes(section) && (
             <section className="panel">

@@ -70,6 +70,13 @@ import { forPublicProduct } from "@/lib/presentation";
 import { mediaResponse } from "@/lib/media";
 import { deliverEmail } from "@/lib/email";
 import { importStanStore, previewStanStore } from "@/lib/stan-import";
+import {
+  discardDraft,
+  draftView,
+  messages as storefrontMessages,
+  publishDraft,
+} from "@/lib/storefront-draft";
+import { STOREFRONT_MODEL, storefrontChat } from "@/lib/storefront-ai";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ segments: string[] }> };
 async function route(req: NextRequest, { params }: Context) {
@@ -310,7 +317,7 @@ async function route(req: NextRequest, { params }: Context) {
     }
     if (path === "store" && req.method === "POST") {
       const ownerId = await identity(env),
-        data = storeInput.parse(await body());
+        { theme: storeTheme, ...data } = storeInput.parse(await body());
       if (
         await db.select().from(stores).where(eq(stores.ownerId, ownerId)).get()
       )
@@ -326,6 +333,7 @@ async function route(req: NextRequest, { params }: Context) {
         ownerId,
         publicationState: "draft",
         socials: JSON.stringify(data.socials),
+        themeJson: JSON.stringify(storeTheme || {}),
         createdAt: now(),
       });
       return json({ url: "/dashboard" });
@@ -433,7 +441,7 @@ async function route(req: NextRequest, { params }: Context) {
       return json({ recorded: true });
     }
     if (path === "store" && req.method === "PATCH") {
-      const data = storeInput.parse(await body());
+      const { theme: storeTheme, ...data } = storeInput.parse(await body());
       if (data.currency !== s.currency) {
         const existing = await db
           .select({ id: orders.id })
@@ -454,10 +462,41 @@ async function route(req: NextRequest, { params }: Context) {
         throw new AppError("This address is already taken");
       await db
         .update(stores)
-        .set({ ...data, socials: JSON.stringify(data.socials) })
+        .set({
+          ...data,
+          socials: JSON.stringify(data.socials),
+          ...(storeTheme ? { themeJson: JSON.stringify(storeTheme) } : {}),
+        })
         .where(eq(stores.id, s.id));
       return json({ saved: true });
     }
+    if (path === "storefront/ai" && req.method === "GET") {
+      const view = await draftView(env, s);
+      return json({
+        draft: view.draft,
+        messages: await storefrontMessages(env, s.id),
+        model: STOREFRONT_MODEL,
+        connected: !!env.AI,
+      });
+    }
+    if (path === "storefront/ai/chat" && req.method === "POST") {
+      await rateLimit(env, `storefront-ai:${s.id}`, 8);
+      const data = z
+        .object({
+          message: z.string().trim().min(1).max(2000),
+          expectedVersion: z.number().int().positive().nullable(),
+        })
+        .parse(await body());
+      return json(await storefrontChat(env, s, data));
+    }
+    if (path === "storefront/ai/publish" && req.method === "POST") {
+      const data = z
+        .object({ expectedVersion: z.number().int().positive() })
+        .parse(await body());
+      return json(await publishDraft(env, s, data.expectedVersion));
+    }
+    if (path === "storefront/ai/discard" && req.method === "POST")
+      return json(await discardDraft(env, s.id));
     if (parts[0] === "products") {
       if (req.method === "POST" || req.method === "PATCH")
         return json({
@@ -702,8 +741,7 @@ async function route(req: NextRequest, { params }: Context) {
       return new Response(JSON.stringify(report, null, 2), {
         headers: {
           "Content-Type": "application/json",
-          "Content-Disposition":
-            'attachment; filename="sore-ai-context.json"',
+          "Content-Disposition": 'attachment; filename="sore-ai-context.json"',
           "Cache-Control": "no-store",
         },
       });

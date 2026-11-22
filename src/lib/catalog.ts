@@ -5,6 +5,7 @@ import { products, stores, assets, contacts } from "./schema";
 import { development, storeLimits, type AppEnv } from "./env";
 import { imageUrl, presentation, presentationSchema } from "./presentation";
 import { AppError, id, now, safeUrl } from "./security";
+import { themeSchema } from "./storefront-theme";
 export const publicProduct = {
   id: products.id,
   title: products.title,
@@ -82,6 +83,7 @@ export const storeInput = z.object({
     }, "Choose an IANA time zone")
     .default("America/Chicago"),
   socials: z.record(z.string().max(50), safeUrl).default({}),
+  theme: themeSchema.optional(),
 });
 export async function getStore(env: AppEnv, slug: string) {
   const store = await database(env)

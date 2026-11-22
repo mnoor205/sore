@@ -1721,3 +1721,503 @@
   font-size: 15px;
   font-weight: 500;
 }
+
+/* Storefront editor: AI and manual tabs with a device preview */
+.app-shell .storefront-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.app-shell .editor-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.app-shell .editor-tabs [role="tab"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #999;
+  background: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  min-height: 44px;
+}
+.app-shell .editor-tabs [role="tab"].active {
+  color: #f5f5f5;
+  border-bottom-color: #ed9bbf;
+}
+.app-shell .editor-copy {
+  margin-left: auto;
+}
+.app-shell .editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 28px;
+  align-items: start;
+}
+.app-shell .ai-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: calc(100vh - 230px);
+  min-height: 520px;
+  position: sticky;
+  top: 20px;
+}
+.app-shell .draft-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+}
+.app-shell .draft-bar.has-draft {
+  border-color: #5a2a43;
+  background: #160910;
+}
+.app-shell .draft-bar b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.app-shell .draft-bar span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+.app-shell .draft-actions {
+  display: flex;
+  gap: 8px;
+}
+.app-shell .chat-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px;
+  overscroll-behavior: contain;
+}
+.app-shell .chat-empty {
+  margin: auto 0;
+  text-align: center;
+  color: var(--muted);
+  padding: 20px 8px;
+}
+.app-shell .chat-empty h3 {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 500;
+  margin: 10px 0 8px;
+}
+.app-shell .chat-empty p {
+  font-size: 12px;
+  line-height: 1.7;
+  max-width: 380px;
+  margin: 0 auto;
+}
+.app-shell .chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.app-shell .chat-suggestions button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--surface);
+  min-height: 36px;
+}
+.app-shell .chat-suggestions button:hover:not(:disabled) {
+  border-color: #ed9bbf;
+}
+.app-shell .chat-message {
+  max-width: 88%;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 10px 13px;
+  border-radius: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.app-shell .chat-user {
+  align-self: flex-end;
+  background: #2a1520;
+  color: #ffe6f1;
+  border-bottom-right-radius: 4px;
+}
+.app-shell .chat-assistant {
+  align-self: flex-start;
+  background: var(--surface-raised);
+  border-bottom-left-radius: 4px;
+}
+.app-shell .chat-event {
+  align-self: center;
+  max-width: 100%;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 4px 8px;
+}
+.app-shell .chat-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.app-shell .chat-changes {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.app-shell .chat-changes li {
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--muted);
+}
+.app-shell .chat-notice {
+  font-size: 12px;
+  color: #8adbb7;
+}
+.app-shell .chat-input {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 8px;
+  background: var(--surface);
+}
+.app-shell .chat-input:focus-within {
+  border-color: #d989ad;
+}
+.app-shell .chat-input textarea {
+  flex: 1;
+  border: 0 !important;
+  background: none !important;
+  resize: none;
+  font-size: 13px !important;
+  margin: 0 !important;
+  padding: 6px !important;
+  min-height: 44px;
+}
+.app-shell .chat-input textarea:focus {
+  outline: none;
+}
+.app-shell .chat-input .button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  flex: none;
+}
+.app-shell .chat-footnote {
+  font-size: 11px;
+  color: #777;
+}
+.app-shell .manual-panel {
+  min-width: 0;
+}
+.app-shell .manual-intro {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+.app-shell .device-preview,
+.modal-backdrop .device-preview {
+  position: sticky;
+  top: 20px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: calc(100vh - 230px);
+  min-height: 520px;
+}
+.app-shell .device-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.app-shell .device-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.app-shell .device-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+  background: var(--surface);
+}
+.app-shell .device-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: #999;
+  background: none;
+  min-height: 34px;
+}
+.app-shell .device-toggle button.active {
+  background: var(--surface-raised);
+  color: #f5f5f5;
+}
+.app-shell .device-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.app-shell .device-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+}
+.app-shell .device-scaler {
+  position: relative;
+  flex: none;
+}
+.app-shell .device-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  overflow: hidden;
+  background: #fff;
+}
+.app-shell .device-mobile {
+  border-radius: 62px;
+  padding: 12px;
+  background: #1b1b1d;
+  box-shadow:
+    0 0 0 2px #3a3a3e,
+    0 24px 60px #00000080;
+}
+.app-shell .device-mobile::before {
+  /* screen */
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 50px;
+  background: #000;
+}
+.app-shell .device-mobile iframe {
+  position: relative;
+  display: block;
+  border: 0;
+  border-radius: 0 0 50px 50px;
+  background: #000;
+}
+.app-shell .device-status {
+  position: relative;
+  z-index: 1;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 30px 0 36px;
+  color: #fff;
+  font:
+    600 15px -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    sans-serif;
+  background: #000;
+  border-radius: 50px 50px 0 0;
+}
+.app-shell .device-island {
+  /* camera cutout */
+  position: absolute;
+  left: 50%;
+  top: 11px;
+  width: 122px;
+  height: 35px;
+  margin-left: -61px;
+  border-radius: 20px;
+  background: #000;
+  box-shadow: inset 0 0 0 1px #111;
+}
+.app-shell .device-island::after {
+  content: "";
+  position: absolute;
+  right: 22px;
+  top: 12px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2b3a55, #07090f 70%);
+}
+.app-shell .device-signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+.app-shell .device-signal i {
+  width: 3px;
+  background: #fff;
+  border-radius: 1px;
+}
+.app-shell .device-signal i:nth-child(1) {
+  height: 5px;
+}
+.app-shell .device-signal i:nth-child(2) {
+  height: 8px;
+}
+.app-shell .device-signal i:nth-child(3) {
+  height: 11px;
+}
+.app-shell .device-signal b {
+  width: 22px;
+  height: 11px;
+  margin-left: 6px;
+  border-radius: 3px;
+  border: 1.5px solid #fff;
+  box-shadow:
+    inset -6px 0 0 #000,
+    inset 0 0 0 1px #000;
+  background: #fff;
+}
+.app-shell .device-home {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 20px;
+  width: 134px;
+  height: 5px;
+  margin-left: -67px;
+  border-radius: 3px;
+  background: #ffffffb0;
+  mix-blend-mode: difference;
+  pointer-events: none;
+}
+.app-shell .device-desktop {
+  border-radius: 10px;
+  border: 1px solid #333;
+  box-shadow: 0 18px 50px #00000080;
+}
+.app-shell .device-chrome {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  background: #1c1c1e;
+  border-bottom: 1px solid #2c2c2e;
+}
+.app-shell .device-dots {
+  display: inline-flex;
+  gap: 7px;
+}
+.app-shell .device-dots i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+.app-shell .device-dots i:nth-child(2) {
+  background: #febc2e;
+}
+.app-shell .device-dots i:nth-child(3) {
+  background: #28c840;
+}
+.app-shell .device-url {
+  flex: 0 1 420px;
+  margin: 0 auto;
+  text-align: center;
+  font-size: 13px;
+  color: #aaa;
+  background: #2c2c2e;
+  border-radius: 7px;
+  padding: 5px 10px;
+}
+.app-shell .device-desktop iframe {
+  display: block;
+  border: 0;
+  background: #000;
+}
+.modal-backdrop .confirm-draft p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.modal-backdrop .confirm-draft ul {
+  margin: 14px 0 20px;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.modal-backdrop .confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.modal-backdrop .button.danger {
+  background: #3a0d16;
+  color: #ffb3c0;
+  border: 1px solid #6b1a2a;
+}
+@media (max-width: 980px) {
+  .app-shell .editor-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app-shell .ai-chat {
+    position: static;
+    height: auto;
+    min-height: 0;
+  }
+  .app-shell .chat-log {
+    max-height: 46vh;
+    min-height: 200px;
+  }
+  .app-shell .device-preview {
+    position: static;
+    height: 78vh;
+    min-height: 460px;
+  }
+}
+@media (max-width: 460px) {
+  .app-shell .editor-tabs [role="tab"] {
+    padding: 12px 8px;
+  }
+  .app-shell .draft-actions {
+    width: 100%;
+  }
+  .app-shell .draft-actions .button {
+    flex: 1;
+  }
+  .app-shell .device-preview {
+    height: 70vh;
+  }
+}

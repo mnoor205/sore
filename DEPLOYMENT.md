@@ -5,6 +5,17 @@
 - MCP resource discovery: https://mcp.getsore.me/.well-known/oauth-protected-resource/mcp
 - Email Worker: `coachlane-email-staging`, with workers.dev disabled, a Queue consumer and five-minute cron.
 
+## Storefront AI + manual editor — remote demo, November 21, 2026 (not on getsore.me)
+
+Branch `t3/storefront-ai-manual-editor`. **Not deployed to `coachlane-staging` / getsore.me.** A separate demo Worker, `coachlane-editor-demo`, serves the branch at https://coachlane-editor-demo.warda.workers.dev (version `8668cdcf-ab28-4d4b-ad42-2cab0dd3b14e`). It has its own D1 (`coachlane-editor-demo`, migrations 0001–0010 plus the fictional `fixtures/demo.sql`), R2 (`coachlane-private-demo`), Queue (`coachlane-email-demo`, no consumer), and freshly generated signing secrets. `APP_MODE=development` enables the **Explore demo workspace** sign-in. AI use is capped at 60 edits per store and 400 per day overall. The demo shares no data or secrets with staging.
+
+- AI editor: the `AI` binding calls `anthropic/claude-haiku-5.5` (Claude Haiku 5.5) through the account's `default` AI Gateway, which has authentication on and uses Unified Billing. No provider key is stored in the app.
+- A real request went through the binding locally and on the demo. AI Gateway logs show `anthropic/claude-haiku-5.5` with status 200. Each request costs about $0.0004 (around 2.4k input and 0.4k output tokens).
+- Redeploy the demo: `npm run build:worker -- --env demo && npx wrangler deploy --env demo --upload-source-maps=false`. Apply new migrations with `npx wrangler d1 migrations apply DB --env demo --remote`.
+- Local AI: `SORE_REMOTE_AI=1 npm run dev` after `wrangler login`. Without that flag, `npm run dev`/`next build` stay offline and the AI tab says it isn't connected.
+
+Production rollout (staging Worker on getsore.me) still needs approval: apply `0010_storefront_editor.sql` to `coachlane-staging` first, then deploy the app Worker. The `AI` binding and `AI_GATEWAY_ID` are already in the staging config.
+
 ## Payments and founding price ladder release — November 20, 2026
 
 Merged the Stripe work into the redesign and deployed app version `84eb7944-b518-4716-a716-0a16eea88983` (previous: `137c7919-454c-4162-9eeb-ff3d09929c81`) from commit `36f6824`. The release adds the founding price ladder ($99, +$10 every 5 paid purchases), the creator Payments page at `/dashboard/payments` with Stripe Connect embedded components (`/dashboard/stripe` redirects there), country-aware Connect onboarding, and Worker uploads. Migration `0009_founding_price_ladder.sql` was already applied. The MCP Worker was not redeployed because its code is unchanged. The email Worker stays at `3ed6e0fe`. All 58 service tests and 13 bundled-app tests pass. Live checks: `/`, `/sign-in` and `/dashboard/payments` return 200, `/dashboard/stripe` returns 307 to Payments, and the workspace and account-session APIs return 401 when signed out. All six secret bindings are present. No real purchase or Connect onboarding has been run against this version.

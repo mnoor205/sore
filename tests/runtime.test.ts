@@ -250,7 +250,9 @@ beforeAll(async () => {
       "\n" +
       readFileSync("migrations/0008_import_sources.sql", "utf8") +
       "\n" +
-      readFileSync("migrations/0009_founding_price_ladder.sql", "utf8"),
+      readFileSync("migrations/0009_founding_price_ladder.sql", "utf8") +
+      "\n" +
+      readFileSync("migrations/0010_storefront_editor.sql", "utf8"),
   });
 }, 60000);
 beforeEach(async () => {
@@ -260,7 +262,7 @@ beforeEach(async () => {
   stripeResponses = {};
   stripeRequests = [];
   await call("init", {
-    sql: `DELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM import_sources;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
+    sql: `DELETE FROM storefront_ai_messages;\nDELETE FROM storefront_drafts;\nDELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM import_sources;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
   });
 });
 afterAll(async () => {
@@ -1876,5 +1878,168 @@ describe("Stan storefront import", () => {
         [s.store.id],
       ),
     ).toHaveLength(2);
+  });
+});
+
+describe("Storefront AI editor", () => {
+  const toolReply = (input: unknown, text = "Updated your draft.") => ({
+    id: "msg_fixture",
+    type: "message",
+    role: "assistant",
+    model: "claude-haiku-5-5",
+    stop_reason: "tool_use",
+    content: [
+      { type: "text", text },
+      { type: "tool_use", id: "toolu_1", name: "update_storefront", input },
+    ],
+    usage: { input_tokens: 900, output_tokens: 120 },
+  });
+  async function chat(
+    aiResponse: unknown,
+    expectedVersion: number | null = null,
+    message = "Make it calm with a sage background",
+    extra: Record<string, unknown> = {},
+  ) {
+    return call("storefront-chat", {
+      storeId: "a",
+      input: { message, expectedVersion },
+      aiResponse,
+      ...extra,
+    });
+  }
+  const view = async () =>
+    (await call("storefront-view", { storeId: "a" })).data;
+  it("sends Claude Haiku 5.5 through the AI Gateway binding and saves only a private draft", async () => {
+    const r = await chat(
+      toolReply({
+        reply: "Your storefront now feels calmer.",
+        store: {
+          bio: "Calm, practical tools for new coaches.",
+          theme: { background: "sage", announcement: "New workbook out now" },
+        },
+        products: [{ id: "paid", title: "The Calm Client Workbook" }],
+      }),
+    );
+    expect(r.status).toBe(200);
+    expect(r.data.calls).toHaveLength(1);
+    const sent = r.data.calls[0];
+    expect(sent.model).toBe("anthropic/claude-haiku-5.5");
+    expect(sent.options).toEqual({ gateway: { id: "default" } });
+    expect(sent.input.tools[0].name).toBe("update_storefront");
+    expect(sent.input.messages.at(-1).content).toContain('"id":"paid"');
+    expect(sent.input.messages.at(-1).content).not.toContain(
+      "private.example.test",
+    );
+    expect(sent.input.messages.at(-1).content).not.toContain('"id":"other"');
+    expect(r.data.result.draftVersion).toBe(1);
+    expect(r.data.result.reply).toBe("Your storefront now feels calmer.");
+    expect(r.data.result.gatewayLogId).toBe("log_fixture");
+    expect(r.data.result.changes).toEqual(
+      expect.arrayContaining(["Bio", "Background", "Announcement bar"]),
+    );
+    // Live storefront is untouched until the creator publishes.
+    const [store] = await query(
+      "SELECT bio,theme_json FROM stores WHERE id='a'",
+    );
+    expect(store.bio).toBe("");
+    expect(store.theme_json).toBe("{}");
+    const [product] = await query("SELECT title FROM products WHERE id='paid'");
+    expect(product.title).toBe("Paid Resource");
+    const v = await view();
+    expect(v.draft.version).toBe(1);
+    expect(v.effective.store.theme.background).toBe("sage");
+    expect(v.effective.products.paid.title).toBe("The Calm Client Workbook");
+    expect(v.live.products.paid.title).toBe("Paid Resource");
+    expect(v.messages.map((m: any) => m.role)).toEqual(["user", "assistant"]);
+  });
+  it("includes chat history, rejects stale versions and keeps later manual edits on publish", async () => {
+    await chat(
+      toolReply({ store: { theme: { font: "serif", background: "cream" } } }),
+    );
+    const second = await chat(
+      toolReply({
+        store: { theme: { layout: "grid" } },
+        products: [{ id: "free", buttonLabel: "Grab it free" }],
+      }),
+      1,
+      "Change the free guide button",
+    );
+    expect(second.status).toBe(200);
+    expect(second.data.calls[0].input.messages.length).toBe(3);
+    expect(second.data.result.draftVersion).toBe(2);
+    const stale = await chat(toolReply({ store: { bio: "x" } }), 1);
+    expect(stale.status).toBe(409);
+    // A manual edit to another field after the draft started.
+    await query("UPDATE stores SET bio='Written by hand' WHERE id='a'");
+    const [before] = await query(
+      "SELECT version FROM products WHERE id='free'",
+    );
+    const published = await call("storefront-publish", {
+      storeId: "a",
+      expectedVersion: 2,
+    });
+    expect(published.status).toBe(200);
+    const [store] = await query(
+      "SELECT bio,theme_json FROM stores WHERE id='a'",
+    );
+    expect(store.bio).toBe("Written by hand");
+    // A later partial theme change keeps the earlier draft's theme fields.
+    expect(JSON.parse(store.theme_json)).toMatchObject({
+      font: "serif",
+      background: "cream",
+      layout: "grid",
+    });
+    const [free] = await query(
+      "SELECT button_label,version,price FROM products WHERE id='free'",
+    );
+    expect(free.button_label).toBe("Grab it free");
+    expect(free.version).toBe(before.version + 1);
+    expect(free.price).toBe(0);
+    const v = await view();
+    expect(v.draft).toBeNull();
+    expect(v.messages.at(-1).role).toBe("event");
+  });
+  it("discard leaves the live storefront unchanged and publish refuses a missing draft", async () => {
+    await chat(toolReply({ store: { name: "Renamed Store" } }));
+    const d = await call("storefront-discard", { storeId: "a" });
+    expect(d.data.discarded).toBe(true);
+    const fresh = await chat(toolReply({ store: { bio: "New start" } }));
+    // The discarded session's conversation isn't sent to the model again.
+    expect(fresh.data.calls[0].input.messages).toHaveLength(1);
+    await call("storefront-discard", { storeId: "a" });
+    const [store] = await query("SELECT name FROM stores WHERE id='a'");
+    expect(store.name).toBe("Store A");
+    expect((await view()).draft).toBeNull();
+    const p = await call("storefront-publish", {
+      storeId: "a",
+      expectedVersion: 1,
+    });
+    expect(p.status).toBe(409);
+  });
+  it("rejects prices, invalid values and other tenants' products from the model", async () => {
+    const price = await chat(
+      toolReply({ products: [{ id: "paid", price: 1 }] }),
+    );
+    expect(price.status).toBe(422);
+    const color = await chat(toolReply({ store: { accent: "red" } }));
+    expect(color.status).toBe(422);
+    const other = await chat(
+      toolReply({ products: [{ id: "other", title: "Hijacked title" }] }),
+    );
+    expect(other.status).toBe(200);
+    expect(other.data.result.changes).toEqual([]);
+    expect(other.data.result.skipped).toEqual(["other"]);
+    const [p] = await query("SELECT title FROM products WHERE id='other'");
+    expect(p.title).toBe("Other Store");
+    expect((await view()).draft).toBeNull();
+  });
+  it("reports gateway failures and refusals without saving, and works with no binding configured", async () => {
+    const failed = await chat(null, null, "hi", { aiFail: true });
+    expect(failed.status).toBe(502);
+    const refused = await chat({ stop_reason: "refusal", content: [] });
+    expect(refused.status).toBe(422);
+    const missing = await chat(null, null, "hi", { noAi: true });
+    expect(missing.status).toBe(503);
+    expect((await view()).messages).toEqual([]);
   });
 });

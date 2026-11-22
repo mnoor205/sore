@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
-initOpenNextCloudflareForDev();
+// The AI binding only runs remotely. Keep `next dev`/`next build` offline unless a
+// developer opts in with SORE_REMOTE_AI=1 after `wrangler login`.
+initOpenNextCloudflareForDev({
+  remoteBindings: process.env.SORE_REMOTE_AI === "1",
+});
 const config: NextConfig = {
   images: { unoptimized: true },
   poweredByHeader: false,
