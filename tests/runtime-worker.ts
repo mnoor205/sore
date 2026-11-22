@@ -52,6 +52,25 @@ import {
   verifyAccessIdentity,
 } from "../src/lib/email-auth";
 import { importStanStore, previewStanStore } from "../src/lib/stan-import";
+import { storefrontChat } from "../src/lib/storefront-ai";
+import { publicImageResponse } from "../src/lib/media";
+import { prepareUpload } from "../src/lib/uploads";
+import {
+  discardDraft,
+  draftView,
+  messages as storefrontMessages,
+  publishDraft,
+  saveDraft,
+} from "../src/lib/storefront-draft";
+async function storeRow(env: AppEnv, storeId: string) {
+  const s = await database(env)
+    .select()
+    .from(stores)
+    .where(eq(stores.id, storeId))
+    .get();
+  if (!s) throw new AppError("Store unavailable", 404);
+  return s;
+}
 export default {
   async fetch(req: Request, env: AppEnv, ctx: ExecutionContext) {
     const path = new URL(req.url).pathname;
@@ -122,6 +141,61 @@ export default {
           break;
         case "/test/stan-import":
           value = await importStanStore(env, b.storeId, b.input);
+          break;
+        case "/test/storefront-chat": {
+          // A stand-in for the Workers AI binding that records what the app sends.
+          const calls: unknown[] = [];
+          const aiEnv: AppEnv = {
+            ...env,
+            AI: b.noAi
+              ? undefined
+              : {
+                  aiGatewayLogId: "log_fixture",
+                  async run(model, input, options) {
+                    calls.push({ model, input, options });
+                    if (b.aiFail) throw new Error("gateway unavailable");
+                    return b.aiResponse;
+                  },
+                },
+          };
+          const result = await storefrontChat(
+            aiEnv,
+            await storeRow(env, b.storeId),
+            b.input,
+          );
+          value = { result, calls };
+          break;
+        }
+        case "/test/storefront-view": {
+          const view = await draftView(env, await storeRow(env, b.storeId));
+          value = {
+            ...view,
+            messages: await storefrontMessages(env, b.storeId),
+          };
+          break;
+        }
+        case "/test/storefront-save": {
+          const view = await draftView(env, await storeRow(env, b.storeId));
+          value = {
+            version: await saveDraft(
+              env,
+              b.storeId,
+              view.live,
+              { ...view.live, customSite: b.site },
+              b.expectedVersion,
+            ),
+          };
+          break;
+        }
+        case "/test/storefront-publish":
+          value = await publishDraft(
+            env,
+            await storeRow(env, b.storeId),
+            b.expectedVersion,
+          );
+          break;
+        case "/test/storefront-discard":
+          value = await discardDraft(env, b.storeId, b.expectedVersion);
           break;
         case "/test/init":
           await env.DB.exec(b.sql);
@@ -222,6 +296,15 @@ export default {
           break;
         case "/test/upload":
           value = await completeUpload(env, b.storeId, b.assetId);
+          break;
+        case "/test/prepare-upload":
+          value = await prepareUpload(env, b.storeId, b.input);
+          break;
+        case "/test/public-image":
+          return await publicImageResponse(env, b.assetId);
+        case "/test/put-file":
+          await env.FILES.put(b.key, new Uint8Array(b.bytes));
+          value = { ok: true };
           break;
         case "/test/visits":
           value = await productVisitReport(env, b.storeId, b.range);

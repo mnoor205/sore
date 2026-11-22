@@ -5,6 +5,28 @@
 - MCP resource discovery: https://mcp.getsore.me/.well-known/oauth-protected-resource/mcp
 - Email Worker: `coachlane-email-staging`, with workers.dev disabled, a Queue consumer and five-minute cron.
 
+## Custom storefronts + analytics merge — November 22, 2026
+
+Merged `origin/main` (storefront analytics, visit reporting) into `t3/storefront-ai-manual-editor` and deployed app version `a52d4061-116a-46e4-8d0e-0c5bfbde1812` to `coachlane-staging` (getsore.me). This restores the analytics release that version `67ea1ae6` (deployed from the branch before the merge) had replaced. No new migrations; staging has 0001–0011 from both lines. 88 service and 16 bundled-app tests pass.
+
+### Custom storefront code
+
+Apply `0011_custom_storefront.sql` after `0010` before running this code. It adds nullable `stores.custom_site_json` (published files) and a monotonic `storefront_version` counter. The existing `storefront_drafts` JSON stores private custom files alongside structured template fields. Version tokens keep increasing after publish/discard to reject stale-tab actions. Publish/reset is guarded by the reviewed draft version; discard also requires its version. No new binding, bucket, raw HTML endpoint or provider key is needed. Run `npm run verify`; local browser testing can use `npm run setup:local` then `npm run dev -- --port 3027` without touching an existing server on 3017.
+
+The AI model stays `anthropic/claude-haiku-5.5` with `max_tokens:16384`, existing Gateway configuration and daily limits. Sites have three files (HTML body fragment, CSS, JS), 48 KiB per file / 96 KiB total. Small AI updates use exact edits; restricted/vague requests get guidance without modifying the draft. Public and dashboard hosts retain exactly `sandbox="allow-scripts"` and a leading meta CSP. The only network-image source is the absolute platform `/media/` path; set hosted `APP_URL` to the canonical HTTPS origin. The image-only route admits ready `purpose=image` raster uploads, never SVG, paid files or samples. It sends `default-src 'none'`, `nosniff`, inline disposition and public immutable caching, including for unpublished image uploads. Other network resources, APIs, external fonts/embeds, frames, workers and form submissions remain denied. Checkout still validates the exact opaque iframe and published product id. Published sites fill the viewport with no trust bar; preview checkout gets a transient toast. See README for the exact CSP and image/API contract.
+
+The host's `frame-src 'self'` header blocks off-site iframe navigation; the `/media/` response has a more-specific `default-src 'none'` header rule so Next's generic host policy cannot overwrite it. The sandbox isolates platform sessions but is not moderation or a complete anti-phishing/CPU-abuse defense. Add reporting, merchant verification and suspension before broad rollout. Eleven billed real AI calls and local Chromium checkout/download checks ran against isolated local D1/R2 persistence on port 3027; the existing 3017 server/data were untouched. No deployment, live payment or remote migration ran. Stripe test keys/account/webhook configuration were absent, so real Stripe checkout remains unverified. See [STOREFRONT-VALIDATION.md](STOREFRONT-VALIDATION.md).
+
+## Storefront AI + manual editor — remote demo, November 21, 2026 (not on getsore.me)
+
+Branch `t3/storefront-ai-manual-editor`. **Deployed to `coachlane-staging` (getsore.me) on 2026-11-22 as version `67ea1ae6-3c38-4055-a5b3-b28c8abf418d`, after applying `0010_storefront_editor.sql` and `0011_custom_storefront.sql` remotely.** A real Stripe test-mode purchase from a custom site and Safari checks are still pending. A separate demo Worker, `coachlane-editor-demo`, serves the branch at https://coachlane-editor-demo.warda.workers.dev (version `8668cdcf-ab28-4d4b-ad42-2cab0dd3b14e`). It has its own D1 (`coachlane-editor-demo`, migrations 0001–0010 plus the fictional `fixtures/demo.sql`), R2 (`coachlane-private-demo`), Queue (`coachlane-email-demo`, no consumer), and freshly generated signing secrets. `APP_MODE=development` enables the **Explore demo workspace** sign-in. AI use is capped at 60 edits per store and 400 per day overall. The demo shares no data or secrets with staging.
+
+- AI editor: the `AI` binding calls `anthropic/claude-haiku-5.5` (Claude Haiku 5.5) through the account's `default` AI Gateway, which has authentication on and uses Unified Billing. No provider key is stored in the app.
+- A real request went through the binding locally and on the demo. AI Gateway logs show `anthropic/claude-haiku-5.5` with status 200. Each request costs about $0.0004 (around 2.4k input and 0.4k output tokens).
+- Redeploy the demo: `npm run build:worker -- --env demo && npx wrangler deploy --env demo --upload-source-maps=false`. Apply new migrations with `npx wrangler d1 migrations apply DB --env demo --remote`.
+- Local AI: `SORE_REMOTE_AI=1 npm run dev` after `wrangler login`. Without that flag, `npm run dev`/`next build` stay offline and the AI tab says it isn't connected.
+
+Production rollout (staging Worker on getsore.me) still needs approval: apply `0010_storefront_editor.sql` to `coachlane-staging` first, then deploy the app Worker. The `AI` binding and `AI_GATEWAY_ID` are already in the staging config.
 ## Storefront analytics setup
 
 1. Apply the D1 migrations through `0010_storefront_analytics.sql` before deploying any Worker built with the new schema. For the existing staging database use `npx wrangler d1 migrations apply DB --env staging --remote`. Local setup uses `npm run db:migrate`.

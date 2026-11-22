@@ -12,8 +12,8 @@ const input = z
       .min(1)
       .max(180)
       .regex(
-        /\.(pdf|zip|png|jpe?g|webp)$/i,
-        "Upload a PDF, ZIP, PNG, JPEG or WebP",
+        /\.(pdf|zip|png|jpe?g|webp|gif|avif)$/i,
+        "Upload a PDF, ZIP, PNG, JPEG, WebP, GIF or AVIF",
       ),
     size: z.number().int().positive(),
     type: z.enum([
@@ -23,6 +23,8 @@ const input = z
       "image/png",
       "image/jpeg",
       "image/webp",
+      "image/gif",
+      "image/avif",
     ]),
     purpose: z.enum(["deliverable", "sample", "image"]).default("deliverable"),
   })
@@ -125,7 +127,7 @@ export async function completeUpload(
   )
     throw new AppError("Uploaded file size does not match");
   const prefix = await env.FILES.get(a.key, {
-    range: { offset: 0, length: 12 },
+    range: { offset: 0, length: 32 },
   });
   const bytes = new Uint8Array(await prefix!.arrayBuffer());
   const isPdf =
@@ -138,6 +140,16 @@ export async function completeUpload(
   const isWebp =
     String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
     String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+  const isGif = ["GIF87a", "GIF89a"].includes(
+    String.fromCharCode(...bytes.slice(0, 6)),
+  );
+  const isAvif =
+    String.fromCharCode(...bytes.slice(4, 8)) === "ftyp" &&
+    [8, 16, 20, 24, 28].some((offset) =>
+      ["avif", "avis"].includes(
+        String.fromCharCode(...bytes.slice(offset, offset + 4)),
+      ),
+    );
   if (
     !{
       "application/pdf": isPdf,
@@ -146,6 +158,8 @@ export async function completeUpload(
       "image/png": isPng,
       "image/jpeg": isJpeg,
       "image/webp": isWebp,
+      "image/gif": isGif,
+      "image/avif": isAvif,
     }[a.type]
   ) {
     await env.FILES.delete(a.key);

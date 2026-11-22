@@ -1,3 +1,5 @@
+import CustomSiteHost from "@/components/custom-site-host";
+import { commerceData, parseCustomSite } from "@/lib/custom-site";
 import { notFound, redirect } from "next/navigation";
 import { asc, eq, and } from "drizzle-orm";
 import { getEnv } from "@/lib/env";
@@ -5,12 +7,22 @@ import { creator } from "@/lib/auth";
 import { database } from "@/lib/db";
 import { products } from "@/lib/schema";
 import { publicProduct } from "@/lib/catalog";
+import { presentation } from "@/lib/presentation";
+import { theme } from "@/lib/storefront-theme";
+import { draftView } from "@/lib/storefront-draft";
 import Storefront from "@/components/storefront";
+import PreviewBridge from "@/components/preview-bridge";
+import { requestOrigin } from "@/lib/request-origin";
 export const dynamic = "force-dynamic";
+// Private creator preview of the real storefront renderer.
+// source=live (default): what buyers see now.
+// source=ai: live content with the unpublished AI draft applied on top.
+// source=manual: live content; the manual editor streams unsaved form values in
+// over postMessage, so it never shows the AI draft.
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ product?: string }>;
+  searchParams: Promise<{ product?: string; source?: string }>;
 }) {
   const env = await getEnv();
   let store;
@@ -19,7 +31,12 @@ export default async function Page({
   } catch {
     redirect("/sign-in");
   }
-  const selected = (await searchParams).product;
+  const params = await searchParams,
+    selected = params.product,
+    source =
+      params.source === "ai" || params.source === "manual"
+        ? params.source
+        : "live";
   const rows = await database(env)
     .select(publicProduct)
     .from(products)
@@ -30,26 +47,72 @@ export default async function Page({
       ),
     )
     .orderBy(asc(products.position));
-  const list = selected ? rows : rows.filter((p) => p.state !== "archived");
+  let list = selected ? rows : rows.filter((p) => p.state !== "archived");
   if (selected && !list.length) notFound();
+  let customSite = parseCustomSite(store.customSiteJson);
+  let profile = {
+    name: store.name,
+    bio: store.bio,
+    accent: store.accent,
+    stylePreset: store.stylePreset,
+    theme: theme(store.themeJson),
+  };
+  if (source === "ai") {
+    const { effective } = await draftView(env, store);
+    profile = { ...effective.store };
+    customSite = effective.customSite ?? null;
+    list = list
+      .map((p) => {
+        const d = effective.products[p.id];
+        if (!d) return p;
+        return {
+          ...p,
+          title: d.title,
+          description: d.description,
+          buttonLabel: d.buttonLabel,
+          position: d.position,
+          presentationJson: JSON.stringify({
+            ...presentation(p.presentationJson),
+            audience: d.audience,
+            includedItems: d.includedItems,
+            faqs: d.faqs,
+            sectionOrder: d.sectionOrder,
+            hiddenSections: d.hiddenSections,
+          }),
+        };
+      })
+      .sort((a, b) => a.position - b.position);
+  }
+  const props = {
+    store: {
+      ...profile,
+      slug: store.slug,
+      photo: store.photo,
+      currency: store.currency,
+      supportEmail: store.supportEmail,
+      socials: JSON.parse(store.socials),
+      demo: !!store.demo,
+    },
+    products: list,
+    selectedId: selected,
+    preview: true,
+    privatePreview: true,
+    previewSource: source,
+  } as const;
+  const fallback =
+    source === "manual" ? (
+      <PreviewBridge {...props} />
+    ) : (
+      <Storefront {...props} />
+    );
+  if (selected) return fallback;
   return (
-    <Storefront
-      store={{
-        name: store.name,
-        slug: store.slug,
-        bio: store.bio,
-        photo: store.photo,
-        accent: store.accent,
-        currency: store.currency,
-        supportEmail: store.supportEmail,
-        socials: JSON.parse(store.socials),
-        demo: !!store.demo,
-        stylePreset: store.stylePreset,
-      }}
-      products={list}
-      selectedId={selected}
+    <CustomSiteHost
+      site={customSite}
+      data={commerceData(store, rows, await requestOrigin(env))}
       preview
-      privatePreview
+      manual={source === "manual"}
+      fallback={fallback}
     />
   );
 }
