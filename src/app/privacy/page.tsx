@@ -18,10 +18,18 @@ export default function Page() {
         personal information is excluded.
       </p>
       <p>
-        Product views use a random browser identifier stored locally and a
-        store-specific hash, deduplicated per UTC day. Creator previews are
-        excluded. Requests may be rate limited. Payment details are handled by
-        Stripe-hosted checkout.
+        When a creator enables web analytics, this browser stores a random ID
+        for their storefront. It changes each UTC day. The storefront sends
+        page and product views with a source category. Sore records a daily
+        storefront-specific hash, country, device type and browser family.
+        Analytics events omit names, emails, IP addresses, full URLs and search
+        terms. Cloudflare retains web traffic events for three months. Sore
+        skips private previews and honors Do Not Track and Global Privacy
+        Control. Creators can also exclude their signed-in visits.
+      </p>
+      <p>
+        Checkout and delivery records support your purchase independently of web
+        analytics. Stripe handles payment details.
       </p>
       <p>
         Contact the creator using the support email on their storefront for

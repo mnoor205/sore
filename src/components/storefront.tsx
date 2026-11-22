@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -12,6 +12,7 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import { trafficSource } from "@/lib/storefront-traffic";
 import ProductSections from "./product-sections";
 import { api, Modal, money, Badge } from "./shared";
 import {
@@ -50,6 +51,7 @@ export default function Storefront({
   store: s,
   products,
   selectedId,
+  trackingEnabled = false,
   preview = false,
   privatePreview = false,
   previewSource,
@@ -57,6 +59,7 @@ export default function Storefront({
   store: PublicStore;
   products: PublicProduct[];
   selectedId?: string;
+  trackingEnabled?: boolean;
   preview?: boolean;
   privatePreview?: boolean;
   previewSource?: "live" | "ai" | "manual";
@@ -76,14 +79,46 @@ export default function Storefront({
   const [choosing, setChoosing] = useState<PublicProduct | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const lastPage = useRef("");
   useEffect(() => {
-    if (preview) return;
+    if (
+      preview ||
+      privatePreview ||
+      !trackingEnabled ||
+      !crypto.randomUUID ||
+      navigator.doNotTrack === "1" ||
+      (navigator as Navigator & { globalPrivacyControl?: boolean })
+        .globalPrivacyControl
+    )
+      return;
+    const day = new Date().toISOString().slice(0, 10);
+    const key = "sore_visit_" + s.slug;
+    let visitor = crypto.randomUUID() as string;
     try {
-      let visitor = localStorage.getItem("coachlane_visitor");
-      if (!visitor) {
-        visitor = crypto.randomUUID();
-        localStorage.setItem("coachlane_visitor", visitor);
-      }
+      const saved = localStorage.getItem(key)?.split("|");
+      if (saved?.[0] === day && /^[a-f0-9-]{36}$/.test(saved[1] || ""))
+        visitor = saved[1];
+      else localStorage.setItem(key, day + "|" + visitor);
+      localStorage.removeItem("coachlane_visitor");
+    } catch {
+      /* With storage blocked, this visit lasts one page. */
+    }
+    const page = JSON.stringify([s.slug, selectedId, day]);
+    if (lastPage.current !== page) {
+      lastPage.current = page;
+      const entry = performance.getEntriesByType("navigation")[0];
+      const internal =
+        entry && new URL(entry.name).pathname !== location.pathname;
+      const source = internal
+        ? "Storefront"
+        : trafficSource(document.referrer, location.origin);
+      void api(`public/${s.slug}/pageview`, {
+        productId: selectedId,
+        visitor,
+        source,
+      }).catch(() => {});
+    }
+    try {
       const observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries)
@@ -102,7 +137,7 @@ export default function Storefront({
         .forEach((el) => observer.observe(el));
       return () => observer.disconnect();
     } catch {}
-  }, [preview, products, s.slug]);
+  }, [preview, privatePreview, trackingEnabled, products, s.slug, selectedId]);
   async function checkout(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);

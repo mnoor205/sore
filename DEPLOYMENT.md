@@ -23,6 +23,18 @@ Branch `t3/storefront-ai-manual-editor`. **Deployed to `coachlane-staging` (gets
 - Local AI: `SORE_REMOTE_AI=1 npm run dev` after `wrangler login`. Without that flag, `npm run dev`/`next build` stay offline and the AI tab says it isn't connected.
 
 Production rollout (staging Worker on getsore.me) still needs approval: apply `0010_storefront_editor.sql` to `coachlane-staging` first, then deploy the app Worker. The `AI` binding and `AI_GATEWAY_ID` are already in the staging config.
+## Storefront analytics setup
+
+1. Apply the D1 migrations through `0010_storefront_analytics.sql` before deploying any Worker built with the new schema. For the existing staging database use `npx wrangler d1 migrations apply DB --env staging --remote`. Local setup uses `npm run db:migrate`.
+2. Enable Workers Analytics Engine for the Cloudflare account. The app Worker configuration defines the `STOREFRONT_ANALYTICS` dataset binding, the corresponding SQL table name in `ANALYTICS_DATASET` and a per-location `ANALYTICS_LIMITER` binding (120 events per storefront and network address per minute). Each environment uses its own dataset and rate-limit namespace. Cloudflare creates the dataset on the first accepted pageview.
+3. Create an API token with **Account Analytics Read** scoped to that account. Set `ANALYTICS_READ_TOKEN` and `ANALYTICS_ACCOUNT_ID` as app Worker secrets in the target environment, e.g. `npx wrangler secret put ANALYTICS_READ_TOKEN --env staging` and `npx wrangler secret put ANALYTICS_ACCOUNT_ID --env staging`. The dashboard queries the SQL API server-side. The public storefront writes through the binding.
+4. After release, visit a published storefront while signed out, then open **Analytics** in its creator workspace. Allow for ingestion delay. Local Wrangler development can leave the two secrets unset. The page shows setup status, real local order totals and working tracking preferences.
+
+Tracking starts enabled and signed-in creator visits are excluded by default. Turning tracking off also pauses the existing D1 product impression counter used by Home and MCP. Checkout and fulfillment records are independent. Traffic reports cover the current UTC day and the preceding 6, 29 or 89 days. Pageviews are sampling-weighted. Visitors sum observed distinct browser IDs per day and can be undercounted if sampled. Cloudflare retains events for three months. JSON exports contain only the displayed aggregate report.
+
+## Storefront analytics release — November 21, 2026
+
+Deployed app version `05b51ed1-a178-41b2-bce2-b209bac81dc9` (previous: `4c12d238-85ab-42d3-b80a-62fe7f088ce1`, which only added the analytics secrets to `84eb7944`) from commit `22ebe29`. The release adds the creator Analytics page at `/dashboard/analytics`, the cookieless storefront pageview beacon (Workers Analytics Engine dataset `sore_storefront_staging`, rate-limit namespace `63`) and per-storefront tracking controls. Migration `0010_storefront_analytics.sql` was applied to `coachlane-staging` beforehand and recorded in `d1_migrations`. `ANALYTICS_ACCOUNT_ID` and `ANALYTICS_READ_TOKEN` (Account Analytics Read, verified against the SQL API) are set; all eight secret bindings are present. The MCP and email Workers are unchanged. TypeScript and all 61 service tests passed before deploy. Live checks: `/`, `/dashboard/analytics`, `/dashboard/payments` and `/privacy` return 200, and the analytics read and settings APIs return 401 when signed out. Both creator storefronts are still drafts, so no real public pageview has been recorded yet; the dataset appears on the first accepted pageview after a storefront is published.
 
 ## Payments and founding price ladder release — November 20, 2026
 

@@ -23,6 +23,11 @@ export type AppEnv = {
   SESSION_SECRET: string;
   OAUTH_BRIDGE_SECRET: string;
   DOWNLOAD_SECRET: string;
+  STOREFRONT_ANALYTICS?: AnalyticsEngineDataset;
+  ANALYTICS_DATASET?: string;
+  ANALYTICS_ACCOUNT_ID?: string;
+  ANALYTICS_READ_TOKEN?: string;
+  ANALYTICS_LIMITER?: RateLimit;
   AUTH_PROVIDER?: string;
   OTP_FROM?: string;
   LOGIN_EMAIL?: CloudflareEnv["LOGIN_EMAIL"];

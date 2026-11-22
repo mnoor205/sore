@@ -18,7 +18,6 @@ import {
   outbox,
   entitlements,
   connections,
-  views,
   assets,
   emailAttempts,
 } from "@/lib/schema";
@@ -34,7 +33,6 @@ import {
   AppError,
   checkOrigin,
   csv,
-  hash,
   id,
   now,
   rateLimit,
@@ -50,6 +48,7 @@ import {
 import {
   defaultRange,
   productPerformance,
+  productVisitReport,
   salesSummary,
   storeContext,
 } from "@/lib/reporting";
@@ -80,6 +79,11 @@ import {
   publishDraft,
 } from "@/lib/storefront-draft";
 import { STOREFRONT_MODEL, storefrontChat } from "@/lib/storefront-ai";
+import {
+  recordTraffic,
+  setAnalyticsSettings,
+  storefrontAnalytics,
+} from "@/lib/storefront-analytics";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ segments: string[] }> };
 async function route(req: NextRequest, { params }: Context) {
@@ -283,35 +287,33 @@ async function route(req: NextRequest, { params }: Context) {
         );
         return json(await beginCheckout(env, s.id, await body()));
       }
-      if (parts[2] === "view" && req.method === "POST") {
-        await rateLimit(
-          env,
-          `view:${s.id}:${req.headers.get("cf-connecting-ip") || "local"}`,
-          120,
-        );
-        try {
-          const owner = await identity(env);
-          if (owner === s.ownerId)
-            return json({ recorded: false, reason: "creator preview" });
-        } catch {}
-        const data = z
-          .object({ productId: z.string(), visitor: z.string().uuid() })
-          .parse(await body());
-        const p = await getProduct(env, s.id, data.productId);
-        if (p.state !== "published")
-          throw new AppError("Product unavailable", 404);
-        await db
-          .insert(views)
-          .values({
-            id: id(),
-            storeId: s.id,
-            productId: p.id,
-            visitorHash: await hash(`${s.id}:${data.visitor}`),
-            day: new Date().toISOString().slice(0, 10),
-            createdAt: now(),
-          })
-          .onConflictDoNothing();
-        return json({ recorded: true });
+      if (
+        (parts[2] === "view" || parts[2] === "pageview") &&
+        req.method === "POST"
+      ) {
+        const currentOwner = async () => {
+          if (
+            !req.cookies.has(SESSION_COOKIE) &&
+            !req.cookies.has("coachlane_dev")
+          )
+            return null;
+          try {
+            return await identity(env);
+          } catch (error) {
+            if (error instanceof AppError && error.status === 401) return null;
+            throw error;
+          }
+        };
+        return json({
+          recorded: await recordTraffic(
+            env,
+            s,
+            parts[2],
+            req.headers,
+            currentOwner,
+            body,
+          ),
+        });
       }
       if (parts[2] === "link" && req.method === "GET") {
         const p = await getProduct(env, s.id, query.get("product") || "");
@@ -417,6 +419,12 @@ async function route(req: NextRequest, { params }: Context) {
         ).results,
       });
     }
+    if (path === "analytics" && req.method === "GET") {
+      const days = Number(query.get("days") ?? 30);
+      return json(await storefrontAnalytics(env, s, days));
+    }
+    if (path === "analytics/settings" && req.method === "PATCH")
+      return json(await setAnalyticsSettings(env, s, await body()));
     if (path === "workspace") {
       const from = query.get("from"),
         to = query.get("to");
@@ -424,22 +432,27 @@ async function route(req: NextRequest, { params }: Context) {
         from && to
           ? { from, to }
           : defaultRange(Number(query.get("days") || 30));
-      const [items, summary, performance, entitlement] = await Promise.all([
-        catalog(env, s.id),
-        salesSummary(env, s.id, range),
-        productPerformance(env, s.id, range),
-        db
-          .select()
-          .from(entitlements)
-          .where(eq(entitlements.storeId, s.id))
-          .get(),
-      ]);
+      const [items, summary, performance, visits, entitlement] =
+        await Promise.all([
+          catalog(env, s.id),
+          salesSummary(env, s.id, range),
+          productPerformance(env, s.id, range),
+          query.get("visits") === "1"
+            ? productVisitReport(env, s.id, range)
+            : null,
+          db
+            .select()
+            .from(entitlements)
+            .where(eq(entitlements.storeId, s.id))
+            .get(),
+        ]);
       const quota = await storeLimits(env, s.id);
       return json({
         store: s,
         products: items,
         summary,
         performance,
+        visits,
         entitlement: entitlement
           ? {
               kind: entitlement.kind,

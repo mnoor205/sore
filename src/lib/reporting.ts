@@ -28,12 +28,74 @@ export const definitions = {
 };
 export function defaultRange(days = 30): Range {
   const to = new Date();
-  to.setUTCHours(23, 59, 59, 999);
+  to.setUTCHours(24, 0, 0, 0);
   return {
     from: new Date(to.getTime() - days * 86400000).toISOString(),
     to: to.toISOString(),
   };
 }
+const dayMs = 86_400_000;
+
+export async function productVisitReport(
+  env: AppEnv,
+  storeId: string,
+  input: Range,
+) {
+  const range = rangeSchema.parse(input);
+  const from = Date.parse(range.from);
+  const to = Date.parse(range.to);
+  const [daily, previous, ranking] = await env.DB.batch<
+    Record<string, string | number>
+  >([
+    env.DB.prepare(
+      `
+      SELECT date(created_at / 1000, 'unixepoch') AS day, count(*) AS count
+      FROM views WHERE store_id = ? AND created_at >= ? AND created_at < ?
+      GROUP BY 1 ORDER BY 1
+    `,
+    ).bind(storeId, from, to),
+    env.DB.prepare(
+      `
+      SELECT count(*) AS count FROM views
+      WHERE store_id = ? AND created_at >= ? AND created_at < ?
+    `,
+    ).bind(storeId, from - (to - from), from),
+    env.DB.prepare(
+      `
+      SELECT p.id, p.title, count(*) AS count,
+        (SELECT count(*) FROM orders o WHERE o.product_id = p.id AND o.store_id = p.store_id
+          AND o.status = 'paid' AND o.is_test = 0 AND o.paid_at >= ? AND o.paid_at < ?) AS orders,
+        (SELECT count(*) FROM activities a WHERE a.product_id = p.id AND a.store_id = p.store_id
+          AND a.kind = 'free_signup' AND a.created_at >= ? AND a.created_at < ?) AS signups
+      FROM views v JOIN products p ON p.id = v.product_id AND p.store_id = v.store_id
+      WHERE v.store_id = ? AND v.created_at >= ? AND v.created_at < ?
+      GROUP BY p.id ORDER BY count DESC, p.title, p.id
+    `,
+    ).bind(from, to, from, to, storeId, from, to),
+  ]);
+  const counts = new Map(
+    daily.results.map((row) => [String(row.day), Number(row.count)]),
+  );
+  const days = [];
+  for (let time = Math.floor(from / dayMs) * dayMs; time < to; time += dayMs) {
+    const day = new Date(time).toISOString().slice(0, 10);
+    days.push({ day, count: counts.get(day) ?? 0 });
+  }
+  return {
+    days,
+    previous: Number(previous.results[0].count),
+    total: days.reduce((sum, day) => sum + day.count, 0),
+    products: ranking.results.map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      count: Number(row.count),
+      orders: Number(row.orders),
+      signups: Number(row.signups),
+    })),
+  };
+}
+export type VisitReport = Awaited<ReturnType<typeof productVisitReport>>;
+
 export async function salesSummary(env: AppEnv, storeId: string, input: Range) {
   const range = rangeSchema.parse(input),
     from = Date.parse(range.from),
