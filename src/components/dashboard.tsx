@@ -1,4 +1,5 @@
 "use client";
+import ReportRange from "./report-range";
 import VisitAnalytics from "./visit-analytics";
 import type { VisitReport } from "@/lib/reporting";
 import Brand from "./brand";
@@ -39,7 +40,6 @@ import {
   ArrowUp,
   ArrowDown,
   RefreshCw,
-  CalendarDays,
   Landmark,
   ChartNoAxesCombined,
 } from "lucide-react";
@@ -329,20 +329,12 @@ export default function Dashboard({ section }: { section: string }) {
     </button>
   );
   const dateFilter = (
-    <div className="date-filter">
-      <CalendarDays size={16} />
-      <select
-        aria-label="Reporting date range"
-        value={days}
-        onChange={(e) => setDays(e.target.value)}
-      >
-        <option value="7">Last 7 days</option>
-        <option value="30">Last 30 days</option>
-        <option value="90">Last 90 days</option>
-        <option value="365">Last 365 days</option>
-      </select>
-      <ChevronDown size={14} />
-    </div>
+    <ReportRange
+      label="Product views date range"
+      days={days}
+      onChange={setDays}
+      includeYear
+    />
   );
   return (
     <div className="app-shell">
@@ -474,14 +466,14 @@ export default function Dashboard({ section }: { section: string }) {
             </button>
           </div>
         </header>
-        <main className="dashboard-content">
+        <main className="dashboard-content" data-section={section}>
           <div className="page-heading">
             <div>
               {section === "overview" && (
                 <div className="greeting">YOUR WORKSPACE</div>
               )}
               <h1>{title}</h1>
-              <p>{descriptions[section]}</p>
+              {section !== "analytics" && <p>{descriptions[section]}</p>}
             </div>
             <div className="actions">
               {section === "overview" &&

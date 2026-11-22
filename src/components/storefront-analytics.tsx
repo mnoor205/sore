@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import ReportRange from "./report-range";
 import { api } from "./shared";
 import type {
   AnalyticsResponse,
@@ -141,18 +142,12 @@ export default function StorefrontAnalytics({
       <section className="panel">
         <div className="panel-heading">
           <h2>Storefront traffic</h2>
-          <select
-            aria-label="Analytics date range"
-            value={days}
+          <ReportRange
+            label="Storefront traffic date range"
+            days={days}
+            onChange={setDays}
             disabled={saving}
-            onChange={(e) => setDays(e.target.value)}
-          >
-            {["7", "30", "90"].map((n) => (
-              <option key={n} value={n}>
-                Last {n} days
-              </option>
-            ))}
-          </select>
+          />
         </div>
         {error && (
           <p role="alert" className="error-box">
@@ -168,15 +163,11 @@ export default function StorefrontAnalytics({
         )}
         {!report && !error && <p role="status">Loading traffic…</p>}
         {report?.status === "setup" && (
-          <p role="status">
-            Web analytics setup is pending. Your Sore operator can connect
-            Cloudflare Analytics Engine to show traffic here.
-          </p>
+          <p role="status">Traffic tracking setup is pending.</p>
         )}
         {report?.status === "unavailable" && (
           <p role="status">
-            Traffic data is unavailable. A new dataset becomes available after
-            its first pageview.{" "}
+            Traffic data is unavailable.{" "}
             <button
               className="subtle-link"
               disabled={saving}
@@ -187,7 +178,7 @@ export default function StorefrontAnalytics({
           </p>
         )}
         {report && !report.settings.trackingEnabled && (
-          <p className="notice">Tracking is paused for this storefront.</p>
+          <p className="notice">Tracking paused.</p>
         )}
         {traffic && report && (
           <>
@@ -201,17 +192,13 @@ export default function StorefrontAnalytics({
                 <dd>{count.format(views)}</dd>
               </div>
             </dl>
-            <p>
-              Visitors are counted once per browser per UTC day and added across
-              the range. Sampling and blocked storage can affect estimates.
-            </p>
             {views ? (
               <>
                 <h3>Pageviews by day</h3>
                 <Trend trend={traffic.trend} />
               </>
             ) : (
-              <p role="status">No pageviews recorded in this period.</p>
+              <p role="status">No pageviews this period.</p>
             )}
             <button
               className="button outline"
@@ -292,11 +279,6 @@ export default function StorefrontAnalytics({
                 <dd>{count.format(report.commerce.purchases)}</dd>
               </div>
             </dl>
-            <p>
-              Checkout starts count paid checkout sessions opened. Purchases
-              count confirmed payments. These order totals are independent of
-              web tracking and visitor identity.
-            </p>
           </section>
           <section className="panel">
             <h2>Tracking preferences</h2>
@@ -319,10 +301,6 @@ export default function StorefrontAnalytics({
               <span>Ignore my visits while I’m signed in</span>
             </label>
             <p>
-              Private previews are excluded. Sore honors Do Not Track and Global
-              Privacy Control. A random browser ID is scoped to this storefront
-              and changes daily. Traffic reports use source categories, country
-              and browser or device families.{" "}
               <a href="/privacy">Privacy notice</a>
             </p>
           </section>

@@ -117,10 +117,6 @@ export default function VisitAnalytics({
         <h2>Product views</h2>
         {rangeControl}
       </div>
-      <p>
-        One view per visitor, per product, per UTC day. Creator previews are
-        excluded.
-      </p>
       <div className="visit-summary">
         <div>
           <span>Measured views</span>
@@ -145,7 +141,7 @@ export default function VisitAnalytics({
       <VisitChart days={days} />
       <h3>Views by product</h3>
       {total === 0 ? (
-        <p className="visit-empty">No measured product views in this period.</p>
+        <p className="visit-empty">No product views this period.</p>
       ) : (
         <ul className="visit-ranking">
           {products.map((p) => (
