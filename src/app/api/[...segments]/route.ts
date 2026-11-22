@@ -59,6 +59,7 @@ import {
   stripeAccountSession,
 } from "@/lib/billing";
 import { verifyWebhook } from "@/lib/webhooks";
+import { claimLifetime } from "@/lib/lifetime-links";
 import {
   loadSetup,
   saveSetup,
@@ -396,6 +397,9 @@ async function route(req: NextRequest, { params }: Context) {
         from && to
           ? { from, to }
           : defaultRange(Number(query.get("days") || 30));
+      // A lifetime bought through the payment link before this store existed
+      // (or while the webhook was in flight) is granted on the next load.
+      await claimLifetime(env, s.id);
       const [items, summary, performance, visits, entitlement] =
         await Promise.all([
           catalog(env, s.id),

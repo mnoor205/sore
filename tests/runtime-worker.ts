@@ -31,6 +31,7 @@ import {
   stripeAccountSession,
 } from "../src/lib/billing";
 import { database } from "../src/lib/db";
+import { claimLifetime } from "../src/lib/lifetime-links";
 import { stores } from "../src/lib/schema";
 import { eq } from "drizzle-orm";
 import { sign, verify, AppError } from "../src/lib/security";
@@ -140,6 +141,9 @@ export default {
           value = await billingCheckout(env, s!, b.kind);
           break;
         }
+        case "/test/claim-lifetime":
+          value = { claimed: await claimLifetime(env, b.storeId) };
+          break;
         case "/test/connect": {
           const s = await database(env)
             .select()

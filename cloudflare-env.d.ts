@@ -23,8 +23,8 @@ interface __BaseEnv_CloudflareEnv {
 	WORKER_SELF_REFERENCE: Fetcher /* coachlane */ | Fetcher /* coachlane-staging */ | Service<typeof import("./.open-next/worker").default>;
 	LOGIN_EMAIL?: SendEmail;
 	PLATFORM_TAX_ENABLED?: "false";
-	STRIPE_LTD_PRODUCT_ID?: "prod_VfOPDFsW1KGqds";
-	STRIPE_PUBLISHABLE_KEY?: "pk_test_51UdkH5LKVkTyYf4FWQomxvjuo5q0QjJREUakLmUVqipWEV9wF24vArAsOAAYwXBp2CkTZZoN6XW0Un1lWGhrsbI000xvT18NCv";
+	STRIPE_LTD_PRODUCT_ID?: "prod_VfOHRGap641ipJ";
+	STRIPE_PUBLISHABLE_KEY?: "pk_test_51UdixZLoa6oioieG0kKhWen77VZ6AWECpI8MsmSWMNa9w6YFkCk8SKfVqL0B29Se8yfnU0wKWeVm0BQLoiu4bMCo00MSa1wldh";
 	ACCESS_ISSUER?: "https://polished-butterfly-f3b5.cloudflareaccess.com";
 	ACCESS_AUDIENCE?: "7bd5f246386c0e56384f7bdd5a11f26397ce7d2eb70879b490a0016b14d0ccdc";
 	AUTH_PROVIDER?: "email";
@@ -76,8 +76,8 @@ declare namespace Cloudflare {
 		MAX_UPLOAD_MB: "25";
 		MAX_STORAGE_MB: "500";
 		PLATFORM_TAX_ENABLED: "false";
-		STRIPE_LTD_PRODUCT_ID: "prod_VfOPDFsW1KGqds";
-		STRIPE_PUBLISHABLE_KEY: "pk_test_51UdkH5LKVkTyYf4FWQomxvjuo5q0QjJREUakLmUVqipWEV9wF24vArAsOAAYwXBp2CkTZZoN6XW0Un1lWGhrsbI000xvT18NCv";
+		STRIPE_LTD_PRODUCT_ID: "prod_VfOHRGap641ipJ";
+		STRIPE_PUBLISHABLE_KEY: "pk_test_51UdixZLoa6oioieG0kKhWen77VZ6AWECpI8MsmSWMNa9w6YFkCk8SKfVqL0B29Se8yfnU0wKWeVm0BQLoiu4bMCo00MSa1wldh";
 		ACCESS_ISSUER: "https://polished-butterfly-f3b5.cloudflareaccess.com";
 		ACCESS_AUDIENCE: "7bd5f246386c0e56384f7bdd5a11f26397ce7d2eb70879b490a0016b14d0ccdc";
 		AUTH_PROVIDER: "email";

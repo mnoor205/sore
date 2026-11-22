@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect_url?: string | string[] }>;
+  searchParams: Promise<{
+    redirect_url?: string | string[];
+    lifetime?: string | string[];
+  }>;
 }) {
   const env = await getEnv();
   const query = await searchParams;
@@ -20,6 +23,7 @@ export default async function Page({
   return (
     <AuthScreen
       signup
+      lifetimePaid={query.lifetime === "paid"}
       developmentMode={development(env)}
       accessReady={
         env.AUTH_PROVIDER === "email"

@@ -1517,9 +1517,8 @@ export default function Dashboard({ section }: { section: string }) {
                         : "Get founding lifetime access"}
                   </button>
                   <small>
-                    The price rises every few founding buys and is locked when
-                    you open checkout. No automatic conversion to a
-                    subscription.
+                    The price rises $10 after every 5 founding buys. One
+                    payment, no automatic conversion to a subscription.
                   </small>
                 </section>
                 <section className="pricing-card">

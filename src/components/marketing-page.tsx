@@ -14,9 +14,19 @@ function Wordmark() {
     </Link>
   );
 }
-function OfferLink({ price }: { price: number | undefined }) {
+function OfferLink({
+  price,
+  available,
+}: {
+  price: number | undefined;
+  available: boolean;
+}) {
+  // /lifetime sends the buyer to the current price tier's Stripe Payment Link.
   return (
-    <a className="sf-button sf-primary" href="#lifetime">
+    <a
+      className="sf-button sf-primary"
+      href={available ? "/lifetime" : "#lifetime"}
+    >
       {price === undefined
         ? "Explore lifetime access"
         : `Get lifetime access — $${price}`}
@@ -31,7 +41,8 @@ export default function MarketingPage({
   mcpUrl: string;
 }) {
   const q = offer.quote,
-    price = q?.price;
+    price = q?.price,
+    open = offer.checkoutAvailable;
   const faqs = [
     [
       "What can I sell?",
@@ -51,7 +62,7 @@ export default function MarketingPage({
     ],
     [
       "Any limits or separate costs?",
-      `${offer.quotas.products} products, ${offer.quotas.storageMB} MB storage, ${offer.quotas.uploadMB} MB per file. AI plans, Stripe fees, and applicable taxes are separate. The platform transaction fee is currently 0%. Final purchase and refund terms will be confirmed before checkout opens.`,
+      `${offer.quotas.products} products, ${offer.quotas.storageMB} MB storage, ${offer.quotas.uploadMB} MB per file. AI plans, Stripe fees, and applicable taxes are separate. The platform transaction fee is currently 0%.`,
     ],
     [
       "Can you help me get set up?",
@@ -59,7 +70,7 @@ export default function MarketingPage({
     ],
     [
       "What’s still being activated?",
-      "Paid checkout, direct uploads, and delivery email are being activated. You can start setting up your store now.",
+      "Storefront payments, direct uploads, and delivery email are being activated. You can start setting up your store now.",
     ],
   ];
   return (
@@ -79,7 +90,7 @@ export default function MarketingPage({
             <Link href="/sign-in" className="sf-login">
               Log in
             </Link>
-            <OfferLink price={price} />
+            <OfferLink price={price} available={open} />
           </div>
         </div>
       </header>
@@ -96,7 +107,7 @@ export default function MarketingPage({
             Sell workbooks, templates, and downloads from one link in your bio.
           </p>
           <div className="sf-hero-actions">
-            <OfferLink price={price} />
+            <OfferLink price={price} available={open} />
             <a className="sf-text-link" href="#storefront">
               See the storefronts
             </a>
@@ -139,7 +150,11 @@ export default function MarketingPage({
                 <>
                   {q.remaining} more {q.remaining === 1 ? "buyer" : "buyers"}.
                   <br />
-                  <span>Then it’s ${q.nextPrice}.</span>
+                  <span>
+                    {q.nextPrice === null
+                      ? "Then the founding offer closes."
+                      : `Then it’s $${q.nextPrice}.`}
+                  </span>
                 </>
               ) : (
                 <>
@@ -176,12 +191,26 @@ export default function MarketingPage({
               <span>USD · one time</span>
             </div>
             <FoundingPriceChange quote={q} />
-            <button className="sf-button sf-primary" disabled>
-              {price === undefined
-                ? "Lifetime pricing unavailable"
-                : `Get lifetime access — $${price}`}
-            </button>
-            <p className="sf-checkout-note">Checkout is not open yet.</p>
+            {open && price !== undefined ? (
+              <>
+                <a className="sf-button sf-primary" href="/lifetime">
+                  Get lifetime access — ${price}
+                </a>
+                <p className="sf-checkout-note">
+                  Secure checkout by Stripe. Pay with the email you’ll sign in
+                  with and lifetime access is added to your account.
+                </p>
+              </>
+            ) : (
+              <>
+                <button className="sf-button sf-primary" disabled>
+                  {price === undefined
+                    ? "Lifetime pricing unavailable"
+                    : `Get lifetime access — $${price}`}
+                </button>
+                <p className="sf-checkout-note">Checkout is not open yet.</p>
+              </>
+            )}
             <Link href="/sign-up" className="sf-text-link">
               Start setting up your store
             </Link>

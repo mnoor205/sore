@@ -1,36 +1,44 @@
 import { limits, type AppEnv } from "./env";
+import { lifetimeLadder } from "./lifetime-links";
 
-export function foundingPrice(completedPurchases: number) {
-  if (!Number.isSafeInteger(completedPurchases) || completedPurchases < 0)
-    throw new Error("Invalid completed lifetime purchase count");
-  const tier = Math.floor(completedPurchases / 5);
-  return {
-    completedPurchases,
-    price: 99 + 10 * tier,
-    remaining: 5 - (completedPurchases % 5),
-    nextPrice: 109 + 10 * tier,
-  };
-}
 export type FoundingOffer = {
-  quote: ReturnType<typeof foundingPrice> | null;
+  quote: {
+    price: number;
+    /** Purchases left before the price rises. */
+    remaining: number;
+    nextPrice: number | null;
+    every: number;
+    step: number;
+  } | null;
+  checkoutAvailable: boolean;
   quotas: { products: number; uploadMB: number; storageMB: number };
 };
 
-// Only verified paid billing sessions count. Pending/failed checkouts and demo
-// stores do not create scarcity. Refunds do not rewind completed purchases.
+// The quote comes from Stripe's own completed-checkout count on the current
+// tier's payment link: the same count that retires the link at its cap.
+// Refunds do not rewind it.
 export async function getFoundingOffer(env: AppEnv): Promise<FoundingOffer> {
   const quotas = limits(env);
   let quote: FoundingOffer["quote"] = null;
+  let checkoutAvailable = false;
   try {
-    const row = await env.DB.prepare(
-      "SELECT COUNT(DISTINCT b.session_id) AS completed FROM billing_sessions b JOIN stores s ON s.id=b.store_id WHERE b.kind='lifetime' AND b.status='paid' AND b.session_id IS NOT NULL AND s.demo=0",
-    ).first<{ completed: number }>();
-    if (row) quote = foundingPrice(Number(row.completed));
-  } catch {
-    // An unavailable database must never become a fictional zero-purchase offer.
+    const ladder = await lifetimeLadder(env);
+    if (ladder.price !== null)
+      quote = {
+        price: ladder.price / 100,
+        remaining: ladder.leftAtPrice,
+        nextPrice: ladder.nextPrice === null ? null : ladder.nextPrice / 100,
+        every: ladder.every,
+        step: ladder.step / 100,
+      };
+    checkoutAvailable = ladder.available;
+  } catch (error) {
+    // An unreachable Stripe or database must never become a fictional offer.
+    console.error("Founding offer unavailable", error);
   }
   return {
     quote,
+    checkoutAvailable,
     quotas: {
       products: quotas.products,
       uploadMB: quotas.upload / 1024 / 1024,

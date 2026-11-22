@@ -269,7 +269,7 @@ beforeEach(async () => {
   stripeResponses = {};
   stripeRequests = [];
   await call("init", {
-    sql: `DELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM import_sources;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
+    sql: `DELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM import_sources;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM lifetime_links;\nDELETE FROM lifetime_purchases;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
   });
 });
 afterAll(async () => {
@@ -1145,87 +1145,162 @@ it("subscription webhooks activate, renew, preserve the failure grace deadline a
       .status,
   ).toBe("inactive");
 });
-async function seedLifetimeBuyers(count: number) {
-  for (let i = 0; i < count; i++) {
-    await query(
-      "INSERT INTO stores(id,owner_id,slug,name,created_at) VALUES (?,?,?,?,1)",
-      [`buyer${i}`, `owner_buyer${i}`, `buyer-${i}`, `Buyer ${i}`],
-    );
-    await query(
-      "INSERT INTO entitlements(store_id,kind,status,updated_at) VALUES (?,'lifetime','active',1)",
-      [`buyer${i}`],
-    );
-    await query(
-      "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES (?,?,'lifetime','paid',?,1,1)",
-      [`paid${i}`, `buyer${i}`, `cs_paid_${i}`],
-    );
-  }
-}
-function lifetimeCheckoutAmounts() {
-  return stripeRequests
-    .filter((r) => r.path === "/v1/checkout/sessions")
-    .map((r) =>
-      Number(
-        new URLSearchParams(r.body).get(
-          "line_items[0][price_data][unit_amount]",
-        ),
-      ),
-    );
-}
-it("founding-offer slots are reserved atomically across stores", async () => {
-  await seedLifetimeBuyers(6);
-  await query(
-    "INSERT INTO entitlements(store_id,customer_id,updated_at) VALUES ('a','cus_a',1),('b','cus_b',1)",
+function stripeBody(path: string) {
+  return new URLSearchParams(
+    stripeRequests.filter((r) => r.path === path).at(-1)!.body,
   );
-  stripeResponses["/v1/checkout/sessions"] = {
-    id: "cs_offer",
-    url: "https://checkout.stripe.com/test",
+}
+function tierLink(id: string, count: number, limit = 5) {
+  stripeResponses[`/v1/payment_links/${id}`] = {
+    id,
+    active: count < limit,
+    url: `https://buy.stripe.com/${id}`,
+    restrictions: { completed_sessions: { count, limit } },
   };
-  const results = await Promise.all([
-    call("billing", { storeId: "a", kind: "lifetime" }),
-    call("billing", { storeId: "b", kind: "lifetime" }),
-  ]);
-  expect(results.map((r) => r.status).sort()).toEqual([200, 400]);
-  expect(
-    (await query("SELECT * FROM billing_sessions WHERE status='pending'"))
-      .length,
-  ).toBe(1);
-});
+}
 it("founding price starts at $99 and rises $10 every five buys", async () => {
-  await query(
-    "INSERT INTO entitlements(store_id,customer_id,updated_at) VALUES ('a','cus_a',1),('b','cus_b',1)",
+  // Tier 0: the app creates a $99 price and a payment link capped at 5 sales.
+  stripeResponses["/v1/prices"] = { id: "price_t0" };
+  stripeResponses["/v1/payment_links"] = {
+    id: "plink_t0",
+    url: "https://buy.stripe.com/plink_t0",
+  };
+  tierLink("plink_t0", 2);
+  let r = await call("billing", { storeId: "a", kind: "lifetime" });
+  expect(r.status).toBe(200);
+  expect(r.data.url).toBe(
+    "https://buy.stripe.com/plink_t0?client_reference_id=a",
   );
-  stripeResponses["/v1/checkout/sessions"] = {
-    id: "cs_offer",
-    url: "https://checkout.stripe.com/test",
+  expect(stripeBody("/v1/prices").get("unit_amount")).toBe("9900");
+  expect(stripeBody("/v1/prices").get("product")).toBe("prod_ltd");
+  expect(stripeBody("/v1/prices").get("currency")).toBe("usd");
+  let link = stripeBody("/v1/payment_links");
+  expect(link.get("restrictions[completed_sessions][limit]")).toBe("5");
+  expect(link.get("line_items[0][price]")).toBe("price_t0");
+  expect(link.get("metadata[sore_offer]")).toBe("founding_lifetime");
+  // Asking again reuses the stored tier link instead of creating another.
+  r = await call("billing", { storeId: "b", kind: "lifetime" });
+  expect(r.data.url).toContain("plink_t0");
+  expect(
+    stripeRequests.filter((x) => x.path === "/v1/payment_links").length,
+  ).toBe(1);
+
+  // Stripe retires the link after its fifth sale; the next buyer gets $109.
+  tierLink("plink_t0", 5);
+  stripeResponses["/v1/prices"] = { id: "price_t1" };
+  stripeResponses["/v1/payment_links"] = {
+    id: "plink_t1",
+    url: "https://buy.stripe.com/plink_t1",
+  };
+  tierLink("plink_t1", 0);
+  r = await call("billing", { storeId: "b", kind: "lifetime" });
+  expect(r.data.url).toBe(
+    "https://buy.stripe.com/plink_t1?client_reference_id=b",
+  );
+  expect(stripeBody("/v1/prices").get("unit_amount")).toBe("10900");
+  expect(
+    await query("SELECT tier,amount,sold_out FROM lifetime_links ORDER BY tier"),
+  ).toEqual([
+    { tier: 0, amount: 9900, sold_out: 1 },
+    { tier: 1, amount: 10900, sold_out: 0 },
+  ]);
+});
+it("a paused tier link stops sales instead of skipping to a higher price", async () => {
+  await query(
+    "INSERT INTO lifetime_links(product_id,tier,amount,size,price_id,link_id,url,created_at) VALUES ('prod_ltd',0,9900,5,'price_t0','plink_t0','https://buy.stripe.com/plink_t0',1)",
+  );
+  stripeResponses["/v1/payment_links/plink_t0"] = {
+    id: "plink_t0",
+    active: false,
+    url: "https://buy.stripe.com/plink_t0",
+    restrictions: { completed_sessions: { count: 1, limit: 5 } },
   };
   expect(
     (await call("billing", { storeId: "a", kind: "lifetime" })).status,
-  ).toBe(200);
-  await seedLifetimeBuyers(5);
-  stripeResponses["/v1/checkout/sessions"] = {
-    id: "cs_offer_2",
-    url: "https://checkout.stripe.com/test",
+  ).not.toBe(200);
+});
+function linkSession(extra: Record<string, unknown> = {}) {
+  return {
+    id: "cs_pl",
+    payment_status: "paid",
+    payment_link: "plink_t0",
+    customer: "cus_pl",
+    payment_intent: "pi_pl",
+    currency: "usd",
+    amount_subtotal: 9900,
+    customer_details: { email: "Buyer@Example.com" },
+    client_reference_id: null,
+    metadata: { sore_offer: "founding_lifetime", tier: "0" },
+    ...extra,
   };
-  // Five completed founding purchases move the next buyer to $109.
-  expect(
-    (await call("billing", { storeId: "b", kind: "lifetime" })).status,
-  ).toBe(200);
-  expect(lifetimeCheckoutAmounts()).toEqual([9900, 10900]);
-  const body = new URLSearchParams(
-    stripeRequests.find((r) => r.path === "/v1/checkout/sessions")!.body,
+}
+async function seedTierLink() {
+  await query(
+    "INSERT INTO lifetime_links(product_id,tier,amount,size,price_id,link_id,url,created_at) VALUES ('prod_ltd',0,9900,5,'price_t0','plink_t0','https://buy.stripe.com/plink_t0',1)",
   );
-  expect(body.get("line_items[0][price_data][product]")).toBe("prod_ltd");
-  expect(body.get("line_items[0][price_data][currency]")).toBe("usd");
+}
+it("a payment link purchase is granted to the buyer's store by checkout email, even before the store exists", async () => {
+  await seedTierLink();
+  stripeSession = linkSession();
   expect(
-    (
-      await query(
-        "SELECT amount FROM billing_sessions WHERE kind='lifetime' AND status='pending'",
-      )
-    )
-      .map((r: { amount: number }) => r.amount)
-      .sort(),
-  ).toEqual([10900, 9900].sort());
+    (await platformEvent("evt_pl", "checkout.session.completed", { id: "cs_pl" }))
+      .status,
+  ).toBe(200);
+  const owner =
+    "cf_" +
+    createHash("sha256")
+      .update(accessIssuer + "\nbuyer@example.com")
+      .digest("hex");
+  const [purchase] = await query("SELECT * FROM lifetime_purchases");
+  expect(purchase.owner_id).toBe(owner);
+  expect(purchase.store_id).toBeNull();
+  // The buyer signs up afterwards with the same email and creates a store.
+  await query(
+    "INSERT INTO stores(id,owner_id,slug,name,created_at) VALUES ('ltd','" +
+      owner +
+      "','ltd-store','LTD',1)",
+  );
+  expect((await call("claim-lifetime", { storeId: "ltd" })).data.claimed).toBe(
+    true,
+  );
+  const e = (await query("SELECT * FROM entitlements WHERE store_id='ltd'"))[0];
+  expect(e.kind).toBe("lifetime");
+  expect(e.status).toBe("active");
+  expect(e.payment_intent).toBe("pi_pl");
+  // Another store can't claim the same purchase.
+  expect((await call("claim-lifetime", { storeId: "b" })).data.claimed).toBe(
+    false,
+  );
+});
+it("a signed-in buyer's payment link purchase activates their store immediately and refunds revoke it", async () => {
+  await seedTierLink();
+  stripeSession = linkSession({ client_reference_id: "a" });
+  await platformEvent("evt_pl", "checkout.session.completed", { id: "cs_pl" });
+  expect(
+    (await query("SELECT kind,status FROM entitlements WHERE store_id='a'"))[0],
+  ).toEqual({ kind: "lifetime", status: "active" });
+  stripeResponses["/v1/charges/ch_pl"] = {
+    id: "ch_pl",
+    refunded: true,
+    payment_intent: "pi_pl",
+  };
+  await platformEvent("evt_refund", "charge.refunded", { id: "ch_pl" });
+  expect(
+    (await query("SELECT status FROM entitlements WHERE store_id='a'"))[0]
+      .status,
+  ).toBe("refunded");
+  expect((await call("claim-lifetime", { storeId: "a" })).data.claimed).toBe(
+    false,
+  );
+});
+it("a payment link checkout that doesn't match its tier price grants nothing", async () => {
+  await seedTierLink();
+  stripeSession = linkSession({ client_reference_id: "a", amount_subtotal: 100 });
+  expect(
+    (await platformEvent("evt_pl", "checkout.session.completed", { id: "cs_pl" }))
+      .status,
+  ).not.toBe(200);
+  expect(await query("SELECT * FROM lifetime_purchases")).toEqual([]);
 });
 it("lifetime activation rejects a payment that doesn't match the reserved tier", async () => {
   await query(

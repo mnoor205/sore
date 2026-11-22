@@ -147,43 +147,30 @@ it("hosted mode disables demo login and accurately explains missing creator auth
     await hosted.dispose();
   }
 });
-it("quotes founding prices from completed real purchases and excludes demo and pending sessions", async () => {
+it("quotes the founding tier the payment-link ladder has reached", async () => {
   const db = await mf.getD1Database("DB");
-  await db
-    .prepare(
-      "INSERT INTO stores(id,owner_id,slug,name,demo,created_at) VALUES ('offer-test','offer-owner','offer-test','Offer test',0,0)",
-    )
-    .run();
   const page = async () => (await request("/", undefined, "GET", "")).text();
   const check = async (price: number, remaining: number, next: number) => {
     const html = await page();
     expect(html).toContain(`data-current-price="${price}"`);
     expect(html).toContain(`data-price-remaining="${remaining}"`);
     expect(html).toContain(`data-next-price="${next}"`);
+    // Without Stripe credentials nothing links to checkout.
+    expect(html).not.toContain('href="/lifetime"');
   };
   try {
-    await db
-      .prepare(
-        "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES ('offer-pending','offer-test','lifetime','pending','cs_pending',0,0),('offer-failed','offer-test','lifetime','failed','cs_failed',0,0),('offer-demo','demo-store','lifetime','paid','cs_demo',0,0),('offer-sub','offer-test','subscription','paid','cs_sub',0,0)",
-      )
-      .run();
     await check(99, 5, 109);
-    for (let i = 0; i < 10; i++) {
+    // Tiers Stripe retired (5 completed checkouts each) move the quote up $10.
+    for (const tier of [0, 1])
       await db
         .prepare(
-          "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES (?,'offer-test','lifetime','paid',?,0,0)",
+          "INSERT INTO lifetime_links(product_id,tier,amount,size,price_id,link_id,url,sold_out,created_at) VALUES ('',?,?,5,?,?,'https://buy.stripe.com/x',1,0)",
         )
-        .bind(`offer-paid-${i}`, `cs_paid_${i}`)
+        .bind(tier, 9900 + 1000 * tier, `price_${tier}`, `plink_${tier}`)
         .run();
-      if (i === 3) await check(99, 1, 109);
-      if (i === 4) await check(109, 5, 119);
-      if (i === 9) await check(119, 5, 129);
-    }
+    await check(119, 5, 129);
   } finally {
-    await db
-      .prepare("DELETE FROM billing_sessions WHERE id LIKE 'offer-%'")
-      .run();
-    await db.prepare("DELETE FROM stores WHERE id='offer-test'").run();
+    await db.prepare("DELETE FROM lifetime_links").run();
   }
 });
 it("serves the actual OpenNext build and its static assets in workerd", async () => {
