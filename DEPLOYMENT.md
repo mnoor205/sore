@@ -5,7 +5,11 @@
 - MCP resource discovery: https://mcp.getsore.me/.well-known/oauth-protected-resource/mcp
 - Email Worker: `coachlane-email-staging`, with workers.dev disabled, a Queue consumer and five-minute cron.
 
-## Custom storefront code — local changes, not deployed
+## Custom storefronts + analytics merge — November 22, 2026
+
+Merged `origin/main` (storefront analytics, visit reporting) into `t3/storefront-ai-manual-editor` and deployed app version `a52d4061-116a-46e4-8d0e-0c5bfbde1812` to `coachlane-staging` (getsore.me). This restores the analytics release that version `67ea1ae6` (deployed from the branch before the merge) had replaced. No new migrations; staging has 0001–0011 from both lines. 88 service and 16 bundled-app tests pass.
+
+### Custom storefront code
 
 Apply `0011_custom_storefront.sql` after `0010` before running this code. It adds nullable `stores.custom_site_json` (published files) and a monotonic `storefront_version` counter. The existing `storefront_drafts` JSON stores private custom files alongside structured template fields. Version tokens keep increasing after publish/discard to reject stale-tab actions. Publish/reset is guarded by the reviewed draft version; discard also requires its version. No new binding, bucket, raw HTML endpoint or provider key is needed. Run `npm run verify`; local browser testing can use `npm run setup:local` then `npm run dev -- --port 3027` without touching an existing server on 3017.
 
