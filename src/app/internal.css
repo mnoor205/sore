@@ -2221,3 +2221,16 @@
     height: 70vh;
   }
 }
+.app-shell .manual-profile {
+  border: 1px solid var(--line, #e5e5e5);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 0 0 16px;
+}
+.app-shell .manual-profile > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.app-shell .manual-profile[open] > summary {
+  margin-bottom: 8px;
+}

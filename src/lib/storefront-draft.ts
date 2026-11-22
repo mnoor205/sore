@@ -1,3 +1,8 @@
+import {
+  customSiteSchema,
+  parseCustomSite,
+  type CustomSite,
+} from "./custom-site";
 import { z } from "zod";
 import { catalog } from "./catalog";
 import { presentation, sectionIds } from "./presentation";
@@ -26,6 +31,7 @@ export type DocProduct = {
   hiddenSections: (typeof sectionIds)[number][];
 };
 export type StorefrontDoc = {
+  customSite?: CustomSite | null;
   store: {
     name: string;
     bio: string;
@@ -44,6 +50,7 @@ const faq = z
 const section = z.enum(sectionIds);
 export const storefrontPatchSchema = z
   .object({
+    customSite: customSiteSchema.nullable().optional(),
     store: z
       .object({
         name: z.string().trim().min(2).max(100).optional(),
@@ -109,6 +116,7 @@ export async function liveDoc(
     };
   }
   return {
+    customSite: parseCustomSite(store.customSiteJson),
     store: {
       name: store.name,
       bio: store.bio,
@@ -126,6 +134,7 @@ export async function liveDoc(
 // Leaf paths are compared as JSON so arrays (FAQs, section order) count as one field.
 function leaves(doc: StorefrontDoc) {
   const out = new Map<string, string>();
+  out.set("customSite", JSON.stringify(doc.customSite ?? null));
   const { theme: t, ...rest } = doc.store;
   for (const [k, v] of Object.entries(rest))
     out.set("store." + k, JSON.stringify(v));
@@ -139,7 +148,8 @@ function leaves(doc: StorefrontDoc) {
 function setLeaf(doc: StorefrontDoc, path: string, json: string) {
   const parts = path.split("."),
     value = JSON.parse(json);
-  if (parts[0] === "store" && parts[1] === "theme")
+  if (path === "customSite") doc.customSite = value;
+  else if (parts[0] === "store" && parts[1] === "theme")
     (doc.store.theme as Record<string, unknown>)[parts[2]] = value;
   else if (parts[0] === "store")
     (doc.store as Record<string, unknown>)[parts[1]] = value;
@@ -173,6 +183,7 @@ export function overlay(
 export function applyPatch(doc: StorefrontDoc, input: unknown) {
   const patch = storefrontPatchSchema.parse(input),
     next = structuredClone(doc);
+  if (patch.customSite !== undefined) next.customSite = patch.customSite;
   if (patch.store) {
     const { theme: t, ...rest } = patch.store;
     Object.assign(next.store, rest);
@@ -215,6 +226,8 @@ const labels: Record<string, string> = {
   hiddenSections: "visible sections",
 };
 export function describe(path: string, doc: StorefrontDoc) {
+  if (path === "customSite")
+    return doc.customSite ? "Custom site files" : "Reset to template";
   const parts = path.split(".");
   if (parts[0] === "store") return labels[parts.at(-1)!] || parts.at(-1)!;
   const title = doc.products[parts[1]]?.title || "Product";
@@ -269,20 +282,36 @@ export async function saveDraft(
   next: StorefrontDoc,
   expectedVersion: number | null,
 ) {
+  if (next.customSite) customSiteSchema.parse(next.customSite);
   const time = now();
+  const counter = await env.DB.prepare(
+    "UPDATE stores SET storefront_version=MAX(storefront_version,COALESCE((SELECT version FROM storefront_drafts WHERE store_id=?),0))+1 WHERE id=? RETURNING storefront_version AS version",
+  )
+    .bind(storeId, storeId)
+    .first<{ version: number }>();
+  if (!counter) throw new AppError("Store not found", 404);
+  const version = counter.version;
   const result =
     expectedVersion === null
       ? await env.DB.prepare(
-          "INSERT OR IGNORE INTO storefront_drafts (store_id,base_json,draft_json,version,created_at,updated_at) VALUES (?,?,?,1,?,?)",
+          "INSERT OR IGNORE INTO storefront_drafts (store_id,base_json,draft_json,version,created_at,updated_at) VALUES (?,?,?,?,?,?)",
         )
-          .bind(storeId, JSON.stringify(live), JSON.stringify(next), time, time)
+          .bind(
+            storeId,
+            JSON.stringify(live),
+            JSON.stringify(next),
+            version,
+            time,
+            time,
+          )
           .run()
       : await env.DB.prepare(
-          "UPDATE storefront_drafts SET base_json=?,draft_json=?,version=version+1,updated_at=? WHERE store_id=? AND version=?",
+          "UPDATE storefront_drafts SET base_json=?,draft_json=?,version=?,updated_at=? WHERE store_id=? AND version=?",
         )
           .bind(
             JSON.stringify(live),
             JSON.stringify(next),
+            version,
             time,
             storeId,
             expectedVersion,
@@ -293,7 +322,7 @@ export async function saveDraft(
       "Your AI draft changed in another tab. Refresh and try again.",
       409,
     );
-  return expectedVersion === null ? 1 : expectedVersion + 1;
+  return version;
 }
 export async function recordMessage(
   env: AppEnv,
@@ -357,6 +386,19 @@ export async function publishDraft(
     guard =
       " AND EXISTS(SELECT 1 FROM storefront_drafts WHERE store_id=? AND version=?)";
   const statements: D1PreparedStatement[] = [];
+  if (paths.includes("customSite"))
+    statements.push(
+      env.DB.prepare(
+        "UPDATE stores SET custom_site_json=? WHERE id=?" + guard,
+      ).bind(
+        effective.customSite
+          ? JSON.stringify(customSiteSchema.parse(effective.customSite))
+          : null,
+        store.id,
+        store.id,
+        expectedVersion,
+      ),
+    );
   if (paths.some((p) => p.startsWith("store.")))
     statements.push(
       env.DB.prepare(
@@ -429,12 +471,23 @@ export async function publishDraft(
   );
   return { published: true, changes: summary };
 }
-export async function discardDraft(env: AppEnv, storeId: string) {
+export async function discardDraft(
+  env: AppEnv,
+  storeId: string,
+  expectedVersion?: number,
+) {
   const result = await env.DB.prepare(
-    "DELETE FROM storefront_drafts WHERE store_id=?",
+    "DELETE FROM storefront_drafts WHERE store_id=?" +
+      (expectedVersion === undefined ? "" : " AND version=?"),
   )
-    .bind(storeId)
+    .bind(
+      ...(expectedVersion === undefined
+        ? [storeId]
+        : [storeId, expectedVersion]),
+    )
     .run();
+  if (expectedVersion !== undefined && !result.meta.changes)
+    throw new AppError("Your draft changed. Refresh and try again.", 409);
   if (result.meta.changes)
     await recordMessage(
       env,

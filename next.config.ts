@@ -24,10 +24,22 @@ const config: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          // Custom storefront code runs in a sandboxed srcdoc iframe. The sandbox
+          // and the document's own CSP can't stop that frame from navigating
+          // itself, so the embedding page forbids loading any off-site page into
+          // a frame. Otherwise a merchant site could swap in an external phishing
+          // page, or send what a buyer typed out in the URL.
+          { key: "Content-Security-Policy", value: "frame-src 'self'" },
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
+        ],
+      },
+      {
+        source: "/media/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "default-src 'none'" },
         ],
       },
     ];

@@ -11,10 +11,17 @@ import {
 } from "lucide-react";
 import DevicePreview, { type PreviewMode } from "./device-preview";
 import StoreForm, { type Store, type StoreFormValues } from "./store-form";
+import { MANUAL_PREVIEW_MESSAGE } from "./preview-bridge";
 import {
-  MANUAL_PREVIEW_MESSAGE,
-  PREVIEW_READY_MESSAGE,
-} from "./preview-bridge";
+  type CustomSite,
+  SITE_FILE_BYTES,
+  SITE_TOTAL_BYTES,
+  customSiteSchema,
+} from "@/lib/custom-site";
+import { SITE_PREVIEW_MESSAGE, SITE_PREVIEW_READY } from "./custom-site-host";
+import AssetUpload from "./asset-upload";
+import { siteImageUrl } from "@/lib/site-images";
+
 import { api, Badge, Modal } from "./shared";
 type Message = {
   id: string;
@@ -28,6 +35,10 @@ type AiState = {
   messages: Message[];
   model: string;
   connected: boolean;
+  customSite: CustomSite | null;
+  publishedSite: CustomSite | null;
+  starter: CustomSite;
+  images: { id: string; name: string; url: string }[];
 };
 export type EditorTab = "ai" | "manual";
 const suggestions = [
@@ -183,7 +194,9 @@ function AiEditor({
         setNotice("Published. Your live storefront now matches this preview.");
         onPublished();
       } else {
-        await api("storefront/ai/discard", {});
+        await api("storefront/ai/discard", {
+          expectedVersion: state.draft.version,
+        });
         setNotice("Draft discarded. Your live storefront wasn’t changed.");
       }
       setConfirm(null);
@@ -249,9 +262,9 @@ function AiEditor({
               <Sparkles size={22} />
               <h3>Describe the storefront you want.</h3>
               <p>
-                Change the look, rewrite copy, reorder products or tune product
-                sections in plain language. Prices, files and checkout stay
-                exactly as they are.
+                Create responsive layouts, animations, custom sections and
+                hash-linked pages using your Sore images. Prices, files and
+                checkout stay exactly as they are.
               </p>
               <div className="chat-suggestions">
                 {suggestions.map((s) => (
@@ -290,6 +303,21 @@ function AiEditor({
           )}
         </div>
         {notice && <p className="chat-notice">{notice}</p>}
+        <details className="chat-notice">
+          <summary>What can the AI build?</summary>
+          <p>
+            Layouts, colors, copy, inline SVG, animations, system fonts and
+            hash-linked pages. Upload images in the manual editor, then ask the
+            AI to use them. Buttons can open your products’ checkout and the
+            profile links saved in Store details.
+          </p>
+          <p>
+            No external scripts, libraries, fonts, remote images,
+            YouTube/Calendly embeds, analytics, custom domains, backend logic,
+            data storage or signup/contact forms. Prices and files belong in the
+            product editor; payments use Sore checkout.
+          </p>
+        </details>
         {error && (
           <p className="error-box" role="alert">
             {error}
@@ -413,39 +441,60 @@ function ManualEditor({
   onSaved,
   mode,
   setMode,
-}: {
-  store: Store;
-  onSaved: () => void;
-} & ModeProps) {
-  const [refresh, setRefresh] = useState(0),
-    [hasDraft, setHasDraft] = useState(false),
-    [saved, setSaved] = useState(false),
-    frame = useRef<HTMLIFrameElement | null>(null),
-    values = useRef<StoreFormValues | null>(null);
+}: { store: Store; onSaved: () => void } & ModeProps) {
+  const [state, setState] = useState<AiState | null>(null),
+    [site, setSite] = useState<CustomSite | null>(null),
+    [file, setFile] = useState<keyof CustomSite>("html"),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [busy, setBusy] = useState(false),
+    [dirty, setDirty] = useState(false),
+    [savedVersion, setSavedVersion] = useState<number | null>(null),
+    [refresh, setRefresh] = useState(0);
+  const frame = useRef<HTMLIFrameElement | null>(null),
+    values = useRef<CustomSite | null>(null),
+    profile = useRef<StoreFormValues | null>(null);
   const post = useCallback(() => {
     const win = frame.current?.contentWindow;
-    if (!win || !values.current) return;
+    if (!win) return;
     win.postMessage(
-      { type: MANUAL_PREVIEW_MESSAGE, store: values.current },
+      { type: SITE_PREVIEW_MESSAGE, site: values.current },
       window.location.origin,
     );
+    // Unsaved store details for the template preview (used without custom code).
+    if (profile.current)
+      win.postMessage(
+        { type: MANUAL_PREVIEW_MESSAGE, store: profile.current },
+        window.location.origin,
+      );
   }, []);
-  const changed = useCallback(
+  const profileChanged = useCallback(
     (v: StoreFormValues) => {
-      values.current = v;
+      profile.current = v;
       post();
     },
     [post],
   );
+  const load = useCallback(async () => {
+    const next = await api<AiState>("storefront/ai");
+    setState(next);
+    return next;
+  }, []);
   useEffect(() => {
-    api<AiState>("storefront/ai")
-      .then((s) => setHasDraft(!!s.draft))
-      .catch(() => {});
+    load()
+      .then((s) => {
+        setSite(s.publishedSite);
+        values.current = s.publishedSite;
+        post();
+      })
+      .catch((e) => setError((e as Error).message));
+  }, [load, post]);
+  useEffect(() => {
     function ready(event: MessageEvent) {
       if (
-        event.origin === window.location.origin &&
-        event.data?.type === PREVIEW_READY_MESSAGE &&
-        event.source === frame.current?.contentWindow
+        event.origin === location.origin &&
+        event.source === frame.current?.contentWindow &&
+        event.data?.type === SITE_PREVIEW_READY
       )
         post();
     }
@@ -453,31 +502,235 @@ function ManualEditor({
     return () => window.removeEventListener("message", ready);
   }, [post]);
   useEffect(() => {
-    if (!saved) return;
-    const t = setTimeout(() => setSaved(false), 3500);
-    return () => clearTimeout(t);
-  }, [saved]);
+    values.current = site;
+    const timer = setTimeout(post, 300);
+    return () => clearTimeout(timer);
+  }, [site, post]);
+  function edit(next: CustomSite | null) {
+    setSite(next);
+    setDirty(true);
+    setSavedVersion(null);
+    setNotice("");
+  }
+  async function save() {
+    if (!state) return;
+    setBusy(true);
+    setError("");
+    try {
+      if (site) customSiteSchema.parse(site);
+      const result = await api<{ draftVersion: number }>("storefront/site", {
+        site,
+        expectedVersion: state.draft?.version ?? null,
+      });
+      setSavedVersion(result.draftVersion);
+      setDirty(false);
+      await load();
+      setNotice("Draft saved. Review the preview, then publish.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function finish(action: "publish" | "discard") {
+    if (!savedVersion) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api("storefront/ai/" + action, { expectedVersion: savedVersion });
+      const next = await load();
+      setSavedVersion(null);
+      setDirty(false);
+      setSite(next.publishedSite);
+      setNotice(
+        action === "publish"
+          ? "Published to your storefront."
+          : "Draft discarded.",
+      );
+      if (action === "publish") onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div className="editor-workspace manual">
       <section className="manual-panel">
         <p className="manual-intro">
-          Edit your storefront directly. The preview updates as you type and
-          saving publishes straight to your live storefront.
-          {hasDraft &&
-            " Your unpublished AI draft is kept separately and isn’t shown here."}
+          Edit HTML, CSS and JavaScript. This preview starts from your published
+          site, independent of the AI draft. Save a private draft, then publish.
         </p>
-        <StoreForm
-          store={store}
-          onChange={changed}
-          onSaved={() => {
-            setSaved(true);
-            setRefresh((n) => n + 1);
-            onSaved();
-          }}
-        />
-        {saved && (
+        <details className="manual-profile">
+          <summary>Images for your website</summary>
+          <p>
+            Upload public PNG, JPEG, WebP, GIF or AVIF images. Copy a URL into
+            your HTML/CSS, or ask the AI to use it. These images are public even
+            before publishing. SVG and images hosted elsewhere are blocked.
+          </p>
+          <AssetUpload
+            purpose="image"
+            label="Upload website image"
+            onUploaded={(asset) => {
+              const image = {
+                ...asset,
+                url: siteImageUrl(asset.url, location.origin),
+              };
+              setState((current) =>
+                current
+                  ? { ...current, images: [...current.images, image] }
+                  : current,
+              );
+            }}
+          />
+          {state?.images.map((image) => (
+            <label className="site-image-url" key={image.id}>
+              {image.name}
+              <input
+                aria-label={`Image URL for ${image.name}`}
+                readOnly
+                value={image.url}
+                onFocus={(event) => event.target.select()}
+              />
+            </label>
+          ))}
+        </details>
+        {state?.draft && savedVersion === null && (
+          <p className="chat-notice">
+            An unpublished draft exists. Saving replaces the draft’s site files.{" "}
+            <button
+              className="button outline compact"
+              onClick={() => {
+                setSite(state.customSite);
+                setSavedVersion(state.draft!.version);
+                setDirty(false);
+              }}
+            >
+              Load saved draft
+            </button>
+          </p>
+        )}
+        <details className="manual-profile">
+          <summary>Store details</summary>
+          <p className="manual-intro">
+            Name, bio, photo, links and support email. Saving updates your live
+            store right away and feeds <code>window.Sore</code> in custom code.
+          </p>
+          <StoreForm
+            store={store}
+            onChange={profileChanged}
+            onSaved={() => {
+              setNotice("Store details saved to your live storefront.");
+              setRefresh((n) => n + 1);
+              load().catch(() => {});
+              onSaved();
+            }}
+          />
+        </details>
+        {!state ? (
+          <Loader2 className="spin" size={18} />
+        ) : (
+          <>
+            {!site ? (
+              <p>
+                Using the platform template.{" "}
+                <button
+                  className="button primary compact"
+                  onClick={() => edit(state.starter)}
+                >
+                  Start from current template
+                </button>
+              </p>
+            ) : (
+              <>
+                <div
+                  className="site-code-tabs"
+                  role="tablist"
+                  aria-label="Site files"
+                >
+                  {(["html", "css", "js"] as const).map((k) => (
+                    <button
+                      role="tab"
+                      aria-selected={file === k}
+                      className={
+                        "button compact " + (file === k ? "primary" : "outline")
+                      }
+                      key={k}
+                      onClick={() => setFile(k)}
+                    >
+                      {k === "html"
+                        ? "index.html"
+                        : k === "css"
+                          ? "style.css"
+                          : "script.js"}
+                    </button>
+                  ))}
+                </div>
+                <label>
+                  {file.toUpperCase()}
+                  <textarea
+                    className="site-code-input"
+                    spellCheck={false}
+                    aria-label={file.toUpperCase() + " code"}
+                    value={site[file]}
+                    onChange={(e) => edit({ ...site, [file]: e.target.value })}
+                  />
+                </label>
+                <small>
+                  {new TextEncoder().encode(site[file]).byteLength} /{" "}
+                  {SITE_FILE_BYTES} bytes per file · {SITE_TOTAL_BYTES} bytes
+                  total
+                </small>
+                <p>
+                  <code>window.Sore.products</code> supplies real products and
+                  formatted prices. Use <code>Sore.checkout(productId)</code> to
+                  open platform checkout and{" "}
+                  <code>Sore.openLink(url)</code> to open one of your saved
+                  profile links (<code>Sore.store.socials</code>). Use hash
+                  links for extra pages. Other external links, assets, network
+                  requests and forms are blocked.
+                </p>
+                <button
+                  className="button outline compact"
+                  onClick={() => edit(null)}
+                >
+                  Reset to platform template
+                </button>
+              </>
+            )}
+            <div className="site-code-actions">
+              <button
+                className="button primary"
+                disabled={busy || !dirty}
+                onClick={save}
+              >
+                {busy ? "Saving…" : "Save draft"}
+              </button>
+              <button
+                className="button primary"
+                disabled={busy || dirty || !savedVersion}
+                onClick={() => finish("publish")}
+              >
+                Publish
+              </button>
+              <button
+                className="button outline"
+                disabled={busy || !savedVersion}
+                onClick={() => finish("discard")}
+              >
+                Discard saved draft
+              </button>
+            </div>
+          </>
+        )}
+        {error && (
+          <p className="error-box" role="alert">
+            {error}
+          </p>
+        )}
+        {notice && (
           <p className="chat-notice" role="status">
-            Saved to your live storefront.
+            {notice}
           </p>
         )}
       </section>
@@ -487,7 +740,7 @@ function ManualEditor({
         refreshKey={refresh}
         mode={mode}
         onModeChange={setMode}
-        badge={<Badge>Your edits · no AI draft</Badge>}
+        badge={<Badge>Your code · private preview</Badge>}
         onFrame={(el) => {
           frame.current = el;
         }}

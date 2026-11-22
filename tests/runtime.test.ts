@@ -1,3 +1,13 @@
+import {
+  checkoutMessageUrl,
+  linkMessageUrl,
+  commerceData,
+  customSiteDocument,
+  customSiteSchema,
+  CUSTOM_SITE_CSP,
+  CUSTOM_SITE_SANDBOX,
+  customSiteCsp,
+} from "../src/lib/custom-site";
 import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { build } from "esbuild";
@@ -252,7 +262,9 @@ beforeAll(async () => {
       "\n" +
       readFileSync("migrations/0009_founding_price_ladder.sql", "utf8") +
       "\n" +
-      readFileSync("migrations/0010_storefront_editor.sql", "utf8"),
+      readFileSync("migrations/0010_storefront_editor.sql", "utf8") +
+      "\n" +
+      readFileSync("migrations/0011_custom_storefront.sql", "utf8"),
   });
 }, 60000);
 beforeEach(async () => {
@@ -1909,137 +1921,544 @@ describe("Storefront AI editor", () => {
   }
   const view = async () =>
     (await call("storefront-view", { storeId: "a" })).data;
-  it("sends Claude Haiku 5.5 through the AI Gateway binding and saves only a private draft", async () => {
+  const site = {
+    html: '<main id="content">A custom site</main>',
+    css: "body{background:#eef4ed}",
+    js: 'document.body.dataset.ready="yes";',
+  };
+  it("supplies only this merchant's ready public images to the model", async () => {
+    await query(
+      "INSERT INTO assets(id,store_id,key,name,type,size,ready,created_at,purpose) VALUES ('own-image','a','a/image','own.png','image/png',16,1,1,'image'),('other-image','b','b/image','other.png','image/png',16,1,1,'image'),('pending-image','a','a/pending','pending.png','image/png',16,0,1,'image')",
+    );
+    await query("UPDATE stores SET photo='/api/media/own-image' WHERE id='a'");
+    await query(
+      "UPDATE products SET image='/api/media/own-image' WHERE id='paid'",
+    );
+    const result = await chat(
+      toolReply({ reply: "Which image would you like to use?" }),
+    );
+    const content = result.data.calls[0].input.messages.at(-1).content;
+    expect(content).toContain(
+      '"availableImages":[{"id":"own-image","name":"own.png","url":"https://app.example.test/media/own-image"}]',
+    );
+    expect(content).toContain(
+      '"photo":"https://app.example.test/media/own-image"',
+    );
+    expect(content).toContain(
+      '"image":"https://app.example.test/media/own-image"',
+    );
+    expect(content).not.toContain("other-image");
+    expect(content).not.toContain("pending-image");
+    expect((await view()).draft).toBeNull();
+  });
+  it("sends Haiku through the binding with real products and current files, saving only a draft", async () => {
     const r = await chat(
-      toolReply({
-        reply: "Your storefront now feels calmer.",
-        store: {
-          bio: "Calm, practical tools for new coaches.",
-          theme: { background: "sage", announcement: "New workbook out now" },
-        },
-        products: [{ id: "paid", title: "The Calm Client Workbook" }],
-      }),
+      toolReply({ reply: "Built your custom storefront.", files: site }),
     );
     expect(r.status).toBe(200);
-    expect(r.data.calls).toHaveLength(1);
     const sent = r.data.calls[0];
     expect(sent.model).toBe("anthropic/claude-haiku-5.5");
     expect(sent.options).toEqual({ gateway: { id: "default" } });
+    expect(sent.input.max_tokens).toBe(16384);
     expect(sent.input.tools[0].name).toBe("update_storefront");
-    expect(sent.input.messages.at(-1).content).toContain('"id":"paid"');
-    expect(sent.input.messages.at(-1).content).not.toContain(
-      "private.example.test",
-    );
-    expect(sent.input.messages.at(-1).content).not.toContain('"id":"other"');
+    const context = sent.input.messages.at(-1).content;
+    expect(context).toContain('"id":"paid"');
+    expect(context).toContain('"price":2000');
+    expect(context).toContain('"formattedPrice":"$20.00"');
+    expect(context).toContain("Sore.products");
+    expect(context).not.toContain("private.example.test");
+    expect(context).not.toContain('"id":"other"');
     expect(r.data.result.draftVersion).toBe(1);
-    expect(r.data.result.reply).toBe("Your storefront now feels calmer.");
+    expect(r.data.result.reply).toBe("Built your custom storefront.");
     expect(r.data.result.gatewayLogId).toBe("log_fixture");
-    expect(r.data.result.changes).toEqual(
-      expect.arrayContaining(["Bio", "Background", "Announcement bar"]),
-    );
-    // Live storefront is untouched until the creator publishes.
-    const [store] = await query(
-      "SELECT bio,theme_json FROM stores WHERE id='a'",
-    );
-    expect(store.bio).toBe("");
-    expect(store.theme_json).toBe("{}");
-    const [product] = await query("SELECT title FROM products WHERE id='paid'");
-    expect(product.title).toBe("Paid Resource");
+    expect(r.data.result.changes).toEqual(["Custom site files"]);
     const v = await view();
-    expect(v.draft.version).toBe(1);
-    expect(v.effective.store.theme.background).toBe("sage");
-    expect(v.effective.products.paid.title).toBe("The Calm Client Workbook");
-    expect(v.live.products.paid.title).toBe("Paid Resource");
+    expect(v.effective.customSite).toEqual(site);
+    expect(v.live.customSite).toBeNull();
     expect(v.messages.map((m: any) => m.role)).toEqual(["user", "assistant"]);
+    expect(
+      (await query("SELECT price FROM products WHERE id='paid'"))[0].price,
+    ).toBe(2000);
   });
-  it("includes chat history, rejects stale versions and keeps later manual edits on publish", async () => {
-    await chat(
-      toolReply({ store: { theme: { font: "serif", background: "cream" } } }),
-    );
-    const second = await chat(
+  it("applies targeted find/replace edits and rejects edits that don't match exactly once", async () => {
+    await chat(toolReply({ reply: "Built it", files: site }));
+    const ok = await chat(
       toolReply({
-        store: { theme: { layout: "grid" } },
-        products: [{ id: "free", buttonLabel: "Grab it free" }],
+        reply: "Changed the heading",
+        edits: [
+          { file: "html", find: "A custom site", replace: "Hello there" },
+          { file: "css", find: "#eef4ed", replace: "#fff8e7" },
+        ],
       }),
       1,
-      "Change the free guide button",
+    );
+    expect(ok.status).toBe(200);
+    expect((await view()).effective.customSite).toEqual({
+      ...site,
+      html: '<main id="content">Hello there</main>',
+      css: "body{background:#fff8e7}",
+    });
+    const miss = await chat(
+      toolReply({
+        reply: "Nope",
+        edits: [{ file: "js", find: "not in the file", replace: "x" }],
+      }),
+      2,
+    );
+    expect(miss.status).toBe(422);
+    expect((await view()).effective.customSite?.html).toContain("Hello there");
+  });
+  it("replaces only supplied files, includes history and refuses concurrent edits or stale publish/discard", async () => {
+    await chat(toolReply({ reply: "Built it", files: site }));
+    const second = await chat(
+      toolReply({
+        reply: "Updated the CSS",
+        files: { css: "body{background:gold}" },
+      }),
+      1,
     );
     expect(second.status).toBe(200);
-    expect(second.data.calls[0].input.messages.length).toBe(3);
+    expect(second.data.calls[0].input.messages).toHaveLength(3);
+    expect(second.data.calls[0].input.messages.at(-1).content).toContain(
+      "A custom site",
+    );
     expect(second.data.result.draftVersion).toBe(2);
-    const stale = await chat(toolReply({ store: { bio: "x" } }), 1);
-    expect(stale.status).toBe(409);
-    // A manual edit to another field after the draft started.
+    expect((await view()).effective.customSite).toEqual({
+      ...site,
+      css: "body{background:gold}",
+    });
+    expect(
+      (await chat(toolReply({ reply: "Stale", files: { html: "stale" } }), 1))
+        .status,
+    ).toBe(409);
+    expect(
+      (await call("storefront-publish", { storeId: "a", expectedVersion: 1 }))
+        .status,
+    ).toBe(409);
+    expect(
+      (await call("storefront-discard", { storeId: "a", expectedVersion: 1 }))
+        .status,
+    ).toBe(409);
     await query("UPDATE stores SET bio='Written by hand' WHERE id='a'");
-    const [before] = await query(
-      "SELECT version FROM products WHERE id='free'",
-    );
-    const published = await call("storefront-publish", {
-      storeId: "a",
-      expectedVersion: 2,
-    });
-    expect(published.status).toBe(200);
-    const [store] = await query(
-      "SELECT bio,theme_json FROM stores WHERE id='a'",
-    );
-    expect(store.bio).toBe("Written by hand");
-    // A later partial theme change keeps the earlier draft's theme fields.
-    expect(JSON.parse(store.theme_json)).toMatchObject({
-      font: "serif",
-      background: "cream",
-      layout: "grid",
-    });
-    const [free] = await query(
-      "SELECT button_label,version,price FROM products WHERE id='free'",
-    );
-    expect(free.button_label).toBe("Grab it free");
-    expect(free.version).toBe(before.version + 1);
-    expect(free.price).toBe(0);
+    expect(
+      (await call("storefront-publish", { storeId: "a", expectedVersion: 2 }))
+        .status,
+    ).toBe(200);
     const v = await view();
     expect(v.draft).toBeNull();
-    expect(v.messages.at(-1).role).toBe("event");
-  });
-  it("discard leaves the live storefront unchanged and publish refuses a missing draft", async () => {
-    await chat(toolReply({ store: { name: "Renamed Store" } }));
-    const d = await call("storefront-discard", { storeId: "a" });
-    expect(d.data.discarded).toBe(true);
-    const fresh = await chat(toolReply({ store: { bio: "New start" } }));
-    // The discarded session's conversation isn't sent to the model again.
+    expect(v.live.customSite.css).toContain("gold");
+    expect(v.live.store.bio).toBe("Written by hand");
+    const fresh = await chat(
+      toolReply({ reply: "New draft", files: { css: "body{color:blue}" } }),
+    );
     expect(fresh.data.calls[0].input.messages).toHaveLength(1);
-    await call("storefront-discard", { storeId: "a" });
-    const [store] = await query("SELECT name FROM stores WHERE id='a'");
-    expect(store.name).toBe("Store A");
-    expect((await view()).draft).toBeNull();
-    const p = await call("storefront-publish", {
+    expect(fresh.data.result.draftVersion).toBeGreaterThan(2);
+    // A stale token from an earlier session can never match a new draft.
+    expect(
+      (await call("storefront-publish", { storeId: "a", expectedVersion: 1 }))
+        .status,
+    ).toBe(409);
+  });
+  it("supports manual save, discard, reset and monotonic concurrency tokens", async () => {
+    const save = (custom: unknown, expectedVersion: number | null) =>
+      call("storefront-save", { storeId: "a", site: custom, expectedVersion });
+    const first = await save(site, null);
+    expect(first.status).toBe(200);
+    expect((await save(site, null)).status).toBe(409);
+    await call("storefront-publish", {
       storeId: "a",
-      expectedVersion: 1,
+      expectedVersion: first.data.version,
     });
-    expect(p.status).toBe(409);
+    const reset = await chat(
+      toolReply({
+        reply: "Restored the template in draft",
+        resetToTemplate: true,
+      }),
+    );
+    expect(reset.status).toBe(200);
+    expect((await view()).effective.customSite).toBeNull();
+    expect((await view()).live.customSite).toEqual(site);
+    const discarded = await call("storefront-discard", {
+      storeId: "a",
+      expectedVersion: reset.data.result.draftVersion,
+    });
+    expect(discarded.data.discarded).toBe(true);
+    expect((await view()).live.customSite).toEqual(site);
+    const resetAgain = await save(null, null);
+    await call("storefront-publish", {
+      storeId: "a",
+      expectedVersion: resetAgain.data.version,
+    });
+    expect((await view()).live.customSite).toBeNull();
+    expect(
+      (
+        await call("storefront-publish", {
+          storeId: "a",
+          expectedVersion: resetAgain.data.version,
+        })
+      ).status,
+    ).toBe(409);
   });
-  it("rejects prices, invalid values and other tenants' products from the model", async () => {
-    const price = await chat(
-      toolReply({ products: [{ id: "paid", price: 1 }] }),
-    );
-    expect(price.status).toBe(422);
-    const color = await chat(toolReply({ store: { accent: "red" } }));
-    expect(color.status).toBe(422);
-    const other = await chat(
-      toolReply({ products: [{ id: "other", title: "Hijacked title" }] }),
-    );
-    expect(other.status).toBe(200);
-    expect(other.data.result.changes).toEqual([]);
-    expect(other.data.result.skipped).toEqual(["other"]);
-    const [p] = await query("SELECT title FROM products WHERE id='other'");
-    expect(p.title).toBe("Other Store");
+  it("rejects oversized UTF-8 files, oversized total sites, unsupported tool keys and truncated output", async () => {
+    for (const files of [
+      { html: "x".repeat(49153) },
+      { js: "😀".repeat(12289) },
+      {
+        html: "a".repeat(40000),
+        css: "b".repeat(40000),
+        js: "c".repeat(40000),
+      },
+    ]) {
+      expect(
+        (await chat(toolReply({ reply: "Too large", files }))).status,
+      ).toBe(422);
+    }
+    expect(
+      (
+        await chat(
+          toolReply({
+            reply: "Change price",
+            products: [{ id: "paid", price: 1 }],
+          }),
+        )
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await chat({
+          ...toolReply({ reply: "Truncated", files: site }),
+          stop_reason: "max_tokens",
+        })
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await call("storefront-save", {
+          storeId: "a",
+          expectedVersion: null,
+          site: { ...site, html: "x".repeat(49153) },
+        })
+      ).status,
+    ).toBe(400);
     expect((await view()).draft).toBeNull();
   });
-  it("reports gateway failures and refusals without saving, and works with no binding configured", async () => {
-    const failed = await chat(null, null, "hi", { aiFail: true });
-    expect(failed.status).toBe(502);
-    const refused = await chat({ stop_reason: "refusal", content: [] });
-    expect(refused.status).toBe(422);
-    const missing = await chat(null, null, "hi", { noAi: true });
-    expect(missing.status).toBe(503);
+  it("reports failures/refusals, missing bindings and daily limits without saving", async () => {
+    expect((await chat(null, null, "hi", { aiFail: true })).status).toBe(502);
+    expect((await chat({ stop_reason: "refusal", content: [] })).status).toBe(
+      422,
+    );
+    expect((await chat(null, null, "hi", { noAi: true })).status).toBe(503);
+    await query(
+      "UPDATE rates SET count=150 WHERE key LIKE 'storefront-ai:a:%'",
+    );
+    expect(
+      (await chat(toolReply({ reply: "Over limit", files: site }))).status,
+    ).toBe(429);
     expect((await view()).messages).toEqual([]);
+  });
+  it.each([
+    [
+      "Add Google Analytics",
+      "External scripts and analytics are blocked. I can add a static statistics section with your own supplied numbers.",
+    ],
+    [
+      "Embed my YouTube video",
+      "Video embeds are blocked. I can create a static video introduction section instead.",
+    ],
+    [
+      "Add a newsletter signup form",
+      "This site cannot collect or store email addresses. I can add a Sore product button instead.",
+    ],
+    [
+      "Make the course $5",
+      "Prices belong in the product editor. I can keep displaying the real price from Sore.",
+    ],
+  ])("returns guidance without saving for %s", async (message, reply) => {
+    const result = await chat(toolReply({ reply }), null, message);
+    expect(result.status).toBe(200);
+    expect(result.data.result.reply).toBe(reply);
+    expect(result.data.result.changes).toEqual([]);
+    expect((await view()).draft).toBeNull();
+    expect(result.data.calls[0].input.system).toContain(
+      "WITHOUT files, edits or resetToTemplate",
+    );
+  });
+  it("also saves no draft for a plain text clarification", async () => {
+    const reply =
+      "Would you prefer a warm editorial layout or a compact product grid?";
+    const result = await chat(
+      { content: [{ type: "text", text: reply }], stop_reason: "end_turn" },
+      null,
+      "Make it better",
+    );
+    expect(result.data.result.reply).toBe(reply);
+    expect((await view()).draft).toBeNull();
+  });
+});
+
+describe("Public website images", () => {
+  it.each([
+    ["png", "image/png", png],
+    ["jpg", "image/jpeg", new Uint8Array([255, 216, 255, 0])],
+    ["webp", "image/webp", new TextEncoder().encode("RIFF0000WEBP")],
+    ["gif", "image/gif", new TextEncoder().encode("GIF89a000000")],
+    [
+      "avif",
+      "image/avif",
+      new Uint8Array([
+        0, 0, 0, 20, 102, 116, 121, 112, 97, 118, 105, 102, 0, 0, 0, 0, 97, 118,
+        105, 102,
+      ]),
+    ],
+  ])(
+    "validates and serves public %s with restrictive headers",
+    async (extension, type, bytes) => {
+      const prepared = await call("prepare-upload", {
+        storeId: "a",
+        input: {
+          name: `site.${extension}`,
+          type,
+          size: bytes.length,
+          purpose: "image",
+        },
+      });
+      expect(prepared.status).toBe(200);
+      const assetId = prepared.data.assetId;
+      const key = (
+        await query("SELECT key FROM assets WHERE id=?", [assetId])
+      )[0].key;
+      await call("put-file", { key, bytes: Array.from(bytes) });
+      expect((await call("upload", { storeId: "a", assetId })).status).toBe(
+        200,
+      );
+      const response = await mf.dispatchFetch(
+        "https://mcp.example.test/test/public-image",
+        { method: "POST", body: JSON.stringify({ assetId }) },
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe(type);
+      expect(response.headers.get("content-security-policy")).toBe(
+        "default-src 'none'",
+      );
+      expect(response.headers.get("content-disposition")).toBe("inline");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(response.headers.get("cache-control")).toBe(
+        "public, max-age=31536000, immutable",
+      );
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+    },
+  );
+  it("refuses SVG, private deliverables, samples and incomplete images", async () => {
+    expect(
+      (
+        await call("prepare-upload", {
+          storeId: "a",
+          input: {
+            name: "bad.svg",
+            type: "image/svg+xml",
+            size: 10,
+            purpose: "image",
+          },
+        })
+      ).status,
+    ).toBe(400);
+    for (const [assetId, purpose, type, ready] of [
+      ["svg", "image", "image/svg+xml", 1],
+      ["private", "deliverable", "image/png", 1],
+      ["sample", "sample", "image/png", 1],
+      ["pending", "image", "image/png", 0],
+    ] as const) {
+      await query(
+        "INSERT INTO assets(id,store_id,key,name,type,size,ready,created_at,purpose) VALUES (?,'a',?,'file',?,16,?,1,?)",
+        [assetId, assetId, type, ready, purpose],
+      );
+      expect((await call("public-image", { assetId })).status).toBe(404);
+    }
+    expect((await call("public-image", { assetId: "asset_a" })).status).toBe(
+      404,
+    );
+    expect((await call("public-image", { assetId: "missing" })).status).toBe(
+      404,
+    );
+  });
+  it("rejects SVG bytes disguised as a raster upload", async () => {
+    const bytes = new TextEncoder().encode('<svg onload="alert(1)"></svg>');
+    const prepared = await call("prepare-upload", {
+      storeId: "a",
+      input: {
+        name: "bad.png",
+        type: "image/png",
+        size: bytes.length,
+        purpose: "image",
+      },
+    });
+    const key = (
+      await query("SELECT key FROM assets WHERE id=?", [prepared.data.assetId])
+    )[0].key;
+    await call("put-file", { key, bytes: Array.from(bytes) });
+    expect(
+      (await call("upload", { storeId: "a", assetId: prepared.data.assetId }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await call("public-image", { assetId: prepared.data.assetId })).status,
+    ).toBe(404);
+  });
+});
+
+describe("Custom storefront trust boundary", () => {
+  const data = {
+    imageOrigin: "https://platform.test",
+    store: {
+      name: "</title><script>bad()</script>",
+      slug: "store-a",
+      bio: "",
+      currency: "usd",
+      supportEmail: "support@example.test",
+      photo: "",
+      socials: {},
+    },
+    products: [
+      {
+        id: "paid",
+        title: "Real resource",
+        description: "",
+        price: 2000,
+        formattedPrice: "$20.00",
+        buttonLabel: "Buy",
+        kind: "resource",
+        image: "",
+        deliveryType: "file",
+        position: 0,
+        checkoutUrl: "/store-a/p/paid",
+      },
+    ],
+  };
+  it("allows exactly the platform image path in CSP and exposes absolute image URLs", () => {
+    expect(customSiteCsp("https://platform.test/path")).toBe(
+      CUSTOM_SITE_CSP.replace(
+        "img-src data: blob:",
+        "img-src data: blob: https://platform.test/media/",
+      ),
+    );
+    const store = { ...data.store, photo: "/api/media/store-photo" };
+    const products = [
+      { ...data.products[0], state: "published", image: "/api/media/cover" },
+      {
+        ...data.products[0],
+        id: "remote",
+        state: "published",
+        image: "https://remote.test/photo.png",
+      },
+      {
+        ...data.products[0],
+        id: "svg",
+        state: "published",
+        image: "/art/cover.svg",
+      },
+    ] as Parameters<typeof commerceData>[1];
+    const commerce = commerceData(store, products, "https://platform.test");
+    expect(commerce.store.photo).toBe(
+      "https://platform.test/media/store-photo",
+    );
+    expect(commerce.products.map((product) => product.image)).toEqual([
+      "https://platform.test/media/cover",
+      "",
+      "",
+    ]);
+    expect(
+      customSiteDocument({ html: "", css: "", js: "" }, commerce),
+    ).toContain('"image":"https://platform.test/media/cover"');
+  });
+  it("accepts only checkout messages from the opaque-origin sandbox and known product ids", () => {
+    const source = {} as MessageEventSource;
+    const message = {
+      origin: "null",
+      source,
+      data: {
+        type: "sore:checkout",
+        productId: "paid",
+        url: "https://evil.test",
+      },
+    };
+    expect(checkoutMessageUrl(message, source, data)).toBe("/store-a/p/paid");
+    for (const invalid of [
+      { ...message, origin: "https://platform.test" },
+      { ...message, source: {} as MessageEventSource },
+      { ...message, data: { type: "sore:checkout", productId: "other" } },
+      { ...message, data: { type: "sore:checkout", productId: "__proto__" } },
+      { ...message, data: null },
+    ])
+      expect(checkoutMessageUrl(invalid, source, data)).toBeNull();
+    expect(checkoutMessageUrl(message, null, data)).toBeNull();
+  });
+  it("opens only the store's saved https profile links from the sandbox", () => {
+    const linked = commerceData(
+      {
+        name: "Store A",
+        slug: "store-a",
+        bio: "",
+        currency: "usd",
+        supportEmail: "",
+        socials: JSON.stringify({
+          instagram: "https://instagram.com/storea",
+          bad: "javascript:alert(1)",
+          plain: "http://insecure.test",
+        }),
+      },
+      [],
+    );
+    expect(linked.store.socials).toEqual({
+      instagram: "https://instagram.com/storea",
+    });
+    const source = {} as MessageEventSource;
+    const message = {
+      origin: "null",
+      source,
+      data: { type: "sore:open-link", url: "https://instagram.com/storea" },
+    };
+    expect(linkMessageUrl(message, source, linked)).toBe(
+      "https://instagram.com/storea",
+    );
+    for (const invalid of [
+      { ...message, origin: "https://platform.test" },
+      { ...message, source: {} as MessageEventSource },
+      { ...message, data: { type: "sore:open-link", url: "https://evil.test" } },
+      { ...message, data: { type: "sore:open-link", url: "http://insecure.test" } },
+      { ...message, data: null },
+    ])
+      expect(linkMessageUrl(invalid, source, linked)).toBeNull();
+    expect(customSiteDocument({ html: "", css: "", js: "" }, linked)).toContain(
+      "openLink(url)",
+    );
+  });
+  it("places restrictive CSP before merchant content and escapes injected data and code delimiters", () => {
+    const doc = customSiteDocument(
+      {
+        html: '<main>merchant</main><meta http-equiv="Content-Security-Policy" content="default-src *">',
+        css: "</style><script>cssEscape()</script>",
+        js: "</script><script>jsEscape()</script>",
+      },
+      data,
+    );
+    expect(CUSTOM_SITE_SANDBOX).toBe("allow-scripts");
+    expect(doc.indexOf("Content-Security-Policy")).toBeLessThan(
+      doc.indexOf("merchant"),
+    );
+    expect(doc).toContain(
+      'name="viewport" content="width=device-width, initial-scale=1"',
+    );
+    expect(doc).not.toContain("<script>bad()");
+    expect(doc).not.toContain("<script>cssEscape()");
+    expect(doc).not.toContain("<script>jsEscape()");
+    for (const directive of [
+      "default-src 'none'",
+      "connect-src 'none'",
+      "form-action 'none'",
+      "base-uri 'none'",
+      "worker-src 'none'",
+      "frame-src 'none'",
+    ])
+      expect(CUSTOM_SITE_CSP).toContain(directive);
   });
 });

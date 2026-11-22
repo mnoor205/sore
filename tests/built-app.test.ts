@@ -517,131 +517,230 @@ it("optional product sections render in their chosen order and public samples st
   expect(paidFile.status).toBe(404);
 });
 
-it("storefront editor: AI draft and manual previews stay separate, and publish/discard work over HTTP", async () => {
-  const db = await mf.getD1Database("DB");
+it("public website images are anonymous, raster-only and isolated from paid downloads", async () => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRz8AAAAASUVORK5CYII=",
+    "base64",
+  );
+  const upload = await json("/api/uploads", {
+    name: "website.png",
+    size: png.length,
+    type: "image/png",
+    purpose: "image",
+  });
+  expect(
+    (
+      await mf.dispatchFetch(upload.url, {
+        method: "PUT",
+        headers: {
+          Cookie: sessionCookie,
+          Origin: origin,
+          "Content-Type": "image/png",
+          "Content-Length": String(png.length),
+        },
+        body: png,
+      })
+    ).status,
+  ).toBe(200);
+  await json("/api/uploads/complete", { assetId: upload.assetId });
+  const response = await request(
+    "/media/" + upload.assetId,
+    undefined,
+    "GET",
+    "",
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toBe("image/png");
+  expect(response.headers.get("content-security-policy")).toBe(
+    "default-src 'none'",
+  );
+  expect(response.headers.get("content-disposition")).toBe("inline");
+  expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  expect(response.headers.get("cache-control")).toContain("immutable");
+  expect(Buffer.from(await response.arrayBuffer())).toEqual(png);
+  expect(
+    (await request("/media/demo-reset", undefined, "GET", "")).status,
+  ).toBe(404);
+  expect((await request("/media/missing", undefined, "GET", "")).status).toBe(
+    404,
+  );
+  expect(
+    (
+      await request("/api/uploads", {
+        name: "bad.svg",
+        size: 12,
+        type: "image/svg+xml",
+        purpose: "image",
+      })
+    ).status,
+  ).toBe(400);
+  const state = (await (
+    await mf.dispatchFetch(origin + "/api/storefront/ai", {
+      headers: { Cookie: sessionCookie, Origin: origin },
+    })
+  ).json()) as { images: { id: string; name: string; url: string }[] };
+  expect(state.images).toContainEqual({
+    id: upload.assetId,
+    name: "website.png",
+    url: `${origin}/media/${upload.assetId}`,
+  });
+});
+
+it("custom storefront drafts publish/discard/reset with concurrency and opaque sandbox on public and private previews", async () => {
   const ai = await json("/api/storefront/ai");
   expect(ai.draft).toBeNull();
   expect(ai.model).toBe("anthropic/claude-haiku-5.5");
-  // This test runtime has no AI binding, so chat fails clearly instead of guessing.
   expect(ai.connected).toBe(false);
-  const chat = await request("/api/storefront/ai/chat", {
-    message: "Make it sage",
+  expect(
+    (
+      await request("/api/storefront/ai/chat", {
+        message: "Build a website",
+        expectedVersion: null,
+      })
+    ).status,
+  ).toBe(503);
+  for (const path of ["/dashboard/storefront", "/dashboard/storefront/manual"])
+    expect((await request(path, undefined, "GET")).status).toBe(200);
+  expect(ai.starter.js).toContain("Sore.products");
+  expect(ai.commerce.products.length).toBeGreaterThan(0);
+  expect(JSON.stringify(ai.commerce)).not.toContain("deliveryUrl");
+  const store = (await json("/api/workspace")).store;
+  const site = {
+    html: "<main>Custom draft content<script>window.__MERCHANT_EXECUTED__=true</script></main>",
+    css: "body{color:purple}",
+    js: "console.log(Sore.products)",
+  };
+  const first = await json("/api/storefront/site", {
+    site,
     expectedVersion: null,
   });
-  expect(chat.status).toBe(503);
-  // Both tabs render inside the dashboard.
-  for (const path of [
-    "/dashboard/storefront",
-    "/dashboard/storefront/manual",
-  ]) {
-    const page = await request(path, undefined, "GET");
-    expect(page.status).toBe(200);
-  }
-  // Seed an AI draft exactly as the editor stores it.
-  const workspace = await json("/api/workspace");
-  const store = workspace.store;
-  const doc = {
-    store: {
-      name: store.name,
-      bio: store.bio,
-      accent: store.accent,
-      stylePreset: store.stylePreset,
-      theme: {
-        background: "preset",
-        font: "preset",
-        corners: "preset",
-        buttons: "preset",
-        align: "center",
-        layout: "list",
-        announcement: "",
-        sectionLabel: "MADE WITH YOU IN MIND",
-        footerText: "Resources for your independent mind.",
-      },
-    },
-    products: {},
+  expect(first.draftVersion).toBeGreaterThan(0);
+  expect(
+    (await request("/api/storefront/site", { site, expectedVersion: null }))
+      .status,
+  ).toBe(409);
+  expect(
+    (
+      await request("/api/storefront/site", {
+        site: { ...site, html: "x".repeat(49153) },
+        expectedVersion: first.draftVersion,
+      })
+    ).status,
+  ).toBe(400);
+  // Chunked / missing Content-Length requests still enforce the byte cap.
+  expect(
+    (
+      await request("/api/storefront/site", {
+        site: { ...site, html: "x".repeat(660000) },
+        expectedVersion: first.draftVersion,
+      })
+    ).status,
+  ).toBe(413);
+  const beforeResponse = await request("/" + store.slug, undefined, "GET", "");
+  // The host page stops the sandboxed frame from navigating to off-site pages.
+  expect(beforeResponse.headers.get("content-security-policy")).toBe(
+    "frame-src 'self'",
+  );
+  const before = await beforeResponse.text();
+  expect(before).not.toContain("Custom draft content");
+  const assertSandbox = (html: string) => {
+    expect(html).toMatch(/<iframe[^>]*sandbox="allow-scripts"/);
+    expect(html).not.toContain('sandbox="allow-scripts allow-same-origin"');
+    expect(html).toContain('srcDoc="&lt;!doctype html&gt;');
+    expect(html).toContain("Content-Security-Policy");
+    for (const directive of [
+      "connect-src",
+      "form-action",
+      "base-uri",
+      "worker-src",
+      "frame-src",
+    ])
+      expect(html).toContain(directive);
+    expect(html).not.toContain("<script>window.__MERCHANT_EXECUTED__");
+    expect(html).toContain("name=&quot;viewport&quot;");
+    expect(html).not.toContain("Products &amp; verified prices");
+    expect(html).not.toContain("Merchant-created website");
   };
-  const draft = structuredClone(doc);
-  draft.store.theme.background = "sage";
-  draft.store.theme.announcement = "AI draft announcement";
-  await db
-    .prepare(
-      "INSERT INTO storefront_drafts (store_id,base_json,draft_json,version,created_at,updated_at) VALUES (?,?,?,1,1,1)",
-    )
-    .bind(store.id, JSON.stringify(doc), JSON.stringify(draft))
-    .run();
-  const aiPreview = await (
+  const draftPreview = await (
     await request("/dashboard/preview?source=ai", undefined, "GET")
   ).text();
-  expect(aiPreview).toContain("AI draft announcement");
-  expect(aiPreview).toContain("theme-bg-sage");
-  for (const source of ["manual", "live"]) {
-    const html = await (
-      await request("/dashboard/preview?source=" + source, undefined, "GET")
-    ).text();
-    expect(html).not.toContain("AI draft announcement");
-    expect(html).not.toContain("theme-bg-sage");
-  }
-  const publicBefore = await (
-    await request("/" + store.slug, undefined, "GET", "")
-  ).text();
-  expect(publicBefore).not.toContain("AI draft announcement");
-  // Manual save goes live immediately and never touches the AI draft.
-  await json(
-    "/api/store",
-    {
-      slug: store.slug,
-      name: store.name,
-      bio: "Saved by hand",
-      photo: store.photo,
-      accent: store.accent,
-      supportEmail: store.supportEmail,
-      audience: store.audience,
-      goals: store.goals,
-      whatTheySell: store.whatTheySell,
-      stylePreset: store.stylePreset,
-      currency: store.currency,
-      timezone: store.timezone,
-      socials: JSON.parse(store.socials),
-      theme: { ...doc.store.theme, footerText: "Handmade footer" },
-    },
-    "PATCH",
-  );
+  expect(draftPreview).toContain("Custom draft content");
+  assertSandbox(draftPreview);
+  for (const source of ["live", "manual"])
+    expect(
+      await (
+        await request("/dashboard/preview?source=" + source, undefined, "GET")
+      ).text(),
+    ).not.toContain("Custom draft content");
+  expect(
+    (
+      await request("/api/storefront/ai/publish", {
+        expectedVersion: first.draftVersion + 10,
+      })
+    ).status,
+  ).toBe(409);
+  expect(
+    (
+      await request("/api/storefront/ai/discard", {
+        expectedVersion: first.draftVersion + 10,
+      })
+    ).status,
+  ).toBe(409);
+  await json("/api/storefront/ai/publish", {
+    expectedVersion: first.draftVersion,
+  });
   const live = await (
     await request("/" + store.slug, undefined, "GET", "")
   ).text();
-  expect(live).toContain("Saved by hand");
-  expect(live).toContain("Handmade footer");
-  expect(live).not.toContain("AI draft announcement");
-  const state = await json("/api/storefront/ai");
-  expect(state.draft.version).toBe(1);
-  expect(state.draft.changes).toEqual(["Background", "Announcement bar"]);
-  const published = await json("/api/storefront/ai/publish", {
-    expectedVersion: 1,
+  expect(live).toContain("Custom draft content");
+  assertSandbox(live);
+  expect(live).toContain("<title>" + store.name + "</title>");
+  for (const source of ["live", "manual", "ai"])
+    assertSandbox(
+      await (
+        await request("/dashboard/preview?source=" + source, undefined, "GET")
+      ).text(),
+    );
+  const product = ai.commerce.products.find((p: any) => p.kind === "resource");
+  expect(product).toBeDefined();
+  expect(
+    (await request(product.checkoutUrl, undefined, "GET", "")).status,
+  ).toBe(200);
+  // There is no raw HTML/code endpoint that can execute with platform authority.
+  const raw = await request("/api/storefront/site", undefined, "GET", "");
+  expect(raw.status).not.toBe(200);
+  expect(raw.headers.get("content-type")).toContain("application/json");
+  const reset = await json("/api/storefront/site", {
+    site: null,
+    expectedVersion: null,
   });
-  expect(published.changes).toEqual(["Background", "Announcement bar"]);
-  const after = await (
+  expect(reset.draftVersion).toBeGreaterThan(first.draftVersion);
+  expect(
+    (
+      await request("/api/storefront/ai/publish", {
+        expectedVersion: first.draftVersion,
+      })
+    ).status,
+  ).toBe(409);
+  await json("/api/storefront/ai/discard", {
+    expectedVersion: reset.draftVersion,
+  });
+  expect(
+    await (await request("/" + store.slug, undefined, "GET", "")).text(),
+  ).toContain("Custom draft content");
+  const resetAgain = await json("/api/storefront/site", {
+    site: null,
+    expectedVersion: null,
+  });
+  await json("/api/storefront/ai/publish", {
+    expectedVersion: resetAgain.draftVersion,
+  });
+  const fallback = await (
     await request("/" + store.slug, undefined, "GET", "")
   ).text();
-  expect(after).toContain("AI draft announcement");
-  expect(after).toContain("theme-bg-sage");
-  // The manual edits made while the draft was open survive publication.
-  expect(after).toContain("Saved by hand");
-  expect(after).toContain("Handmade footer");
-  // Discard with a fresh draft leaves live alone.
-  draft.store.theme.announcement = "Never published";
-  await db
-    .prepare(
-      "INSERT INTO storefront_drafts (store_id,base_json,draft_json,version,created_at,updated_at) VALUES (?,?,?,1,1,1)",
-    )
-    .bind(store.id, JSON.stringify(doc), JSON.stringify(draft))
-    .run();
-  expect((await json("/api/storefront/ai/discard", {})).discarded).toBe(true);
-  const final = await (
-    await request("/" + store.slug, undefined, "GET", "")
-  ).text();
-  expect(final).not.toContain("Never published");
-  expect(final).toContain("AI draft announcement");
+  expect(fallback).not.toContain("Custom draft content");
+  expect(fallback).not.toMatch(/<iframe[^>]*sandbox="allow-scripts"/);
   expect(
     (await json("/api/storefront/ai")).messages.map((m: any) => m.role),
-  ).toEqual(["event", "event"]);
+  ).toEqual(["event", "event", "event"]);
 });

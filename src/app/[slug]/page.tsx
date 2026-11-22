@@ -1,3 +1,6 @@
+import type { Metadata } from "next";
+import CustomSiteHost from "@/components/custom-site-host";
+import { commerceData, parseCustomSite } from "@/lib/custom-site";
 import { forPublicProduct } from "@/lib/presentation";
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
@@ -8,7 +11,26 @@ import { products } from "@/lib/schema";
 import { getStore, publicProduct } from "@/lib/catalog";
 import Storefront from "@/components/storefront";
 import { theme } from "@/lib/storefront-theme";
+import { requestOrigin } from "@/lib/request-origin";
 export const dynamic = "force-dynamic";
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  try {
+    const store = await getStore(await getEnv(), (await params).slug);
+    if (store.publicationState !== "published")
+      return { robots: { index: false, follow: false } };
+    return {
+      title: store.name,
+      description: store.bio || `Digital resources from ${store.name}`,
+      openGraph: { title: store.name, description: store.bio },
+    };
+  } catch {
+    return {};
+  }
+}
 export default async function Page({
   params,
   searchParams,
@@ -36,6 +58,15 @@ export default async function Page({
     .from(products)
     .where(and(eq(products.storeId, store.id), eq(products.state, "published")))
     .orderBy(asc(products.position));
+  const site = parseCustomSite(store.customSiteJson);
+  if (site)
+    return (
+      <CustomSiteHost
+        site={site}
+        data={commerceData(store, list, await requestOrigin(env))}
+        preview={ownPreview}
+      />
+    );
   return (
     <Storefront
       store={{

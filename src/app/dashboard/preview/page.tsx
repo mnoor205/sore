@@ -1,3 +1,5 @@
+import CustomSiteHost from "@/components/custom-site-host";
+import { commerceData, parseCustomSite } from "@/lib/custom-site";
 import { notFound, redirect } from "next/navigation";
 import { asc, eq, and } from "drizzle-orm";
 import { getEnv } from "@/lib/env";
@@ -10,6 +12,7 @@ import { theme } from "@/lib/storefront-theme";
 import { draftView } from "@/lib/storefront-draft";
 import Storefront from "@/components/storefront";
 import PreviewBridge from "@/components/preview-bridge";
+import { requestOrigin } from "@/lib/request-origin";
 export const dynamic = "force-dynamic";
 // Private creator preview of the real storefront renderer.
 // source=live (default): what buyers see now.
@@ -46,6 +49,7 @@ export default async function Page({
     .orderBy(asc(products.position));
   let list = selected ? rows : rows.filter((p) => p.state !== "archived");
   if (selected && !list.length) notFound();
+  let customSite = parseCustomSite(store.customSiteJson);
   let profile = {
     name: store.name,
     bio: store.bio,
@@ -56,6 +60,7 @@ export default async function Page({
   if (source === "ai") {
     const { effective } = await draftView(env, store);
     profile = { ...effective.store };
+    customSite = effective.customSite ?? null;
     list = list
       .map((p) => {
         const d = effective.products[p.id];
@@ -94,9 +99,20 @@ export default async function Page({
     privatePreview: true,
     previewSource: source,
   } as const;
-  return source === "manual" ? (
-    <PreviewBridge {...props} />
-  ) : (
-    <Storefront {...props} />
+  const fallback =
+    source === "manual" ? (
+      <PreviewBridge {...props} />
+    ) : (
+      <Storefront {...props} />
+    );
+  if (selected) return fallback;
+  return (
+    <CustomSiteHost
+      site={customSite}
+      data={commerceData(store, rows, await requestOrigin(env))}
+      preview
+      manual={source === "manual"}
+      fallback={fallback}
+    />
   );
 }

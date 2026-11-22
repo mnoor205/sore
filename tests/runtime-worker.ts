@@ -47,11 +47,14 @@ import {
 } from "../src/lib/email-auth";
 import { importStanStore, previewStanStore } from "../src/lib/stan-import";
 import { storefrontChat } from "../src/lib/storefront-ai";
+import { publicImageResponse } from "../src/lib/media";
+import { prepareUpload } from "../src/lib/uploads";
 import {
   discardDraft,
   draftView,
   messages as storefrontMessages,
   publishDraft,
+  saveDraft,
 } from "../src/lib/storefront-draft";
 async function storeRow(env: AppEnv, storeId: string) {
   const s = await database(env)
@@ -133,6 +136,19 @@ export default {
           };
           break;
         }
+        case "/test/storefront-save": {
+          const view = await draftView(env, await storeRow(env, b.storeId));
+          value = {
+            version: await saveDraft(
+              env,
+              b.storeId,
+              view.live,
+              { ...view.live, customSite: b.site },
+              b.expectedVersion,
+            ),
+          };
+          break;
+        }
         case "/test/storefront-publish":
           value = await publishDraft(
             env,
@@ -141,7 +157,7 @@ export default {
           );
           break;
         case "/test/storefront-discard":
-          value = await discardDraft(env, b.storeId);
+          value = await discardDraft(env, b.storeId, b.expectedVersion);
           break;
         case "/test/init":
           await env.DB.exec(b.sql);
@@ -239,6 +255,15 @@ export default {
           break;
         case "/test/upload":
           value = await completeUpload(env, b.storeId, b.assetId);
+          break;
+        case "/test/prepare-upload":
+          value = await prepareUpload(env, b.storeId, b.input);
+          break;
+        case "/test/public-image":
+          return await publicImageResponse(env, b.assetId);
+        case "/test/put-file":
+          await env.FILES.put(b.key, new Uint8Array(b.bytes));
+          value = { ok: true };
           break;
         case "/test/report":
           value = await salesSummary(env, b.storeId, b.range);

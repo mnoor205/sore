@@ -24,7 +24,11 @@ export default function AssetUpload({
           type="file"
           hidden
           disabled={busy}
-          accept={purpose === "image" ? ".png,.jpg,.jpeg,.webp" : ".pdf,.zip"}
+          accept={
+            purpose === "image"
+              ? ".png,.jpg,.jpeg,.webp,.gif,.avif"
+              : ".pdf,.zip"
+          }
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;

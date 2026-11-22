@@ -53,6 +53,7 @@ export const storeInput = z.object({
           "checkout",
           "onboarding",
           "art",
+          "media",
           "privacy",
           "terms",
         ].includes(s),

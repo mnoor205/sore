@@ -28,6 +28,8 @@ export const stores = sqliteTable("stores", {
   stylePreset: text("style_preset").notNull().default("studio"),
   whatTheySell: text("what_they_sell").notNull().default(""),
   themeJson: text("theme_json").notNull().default("{}"),
+  customSiteJson: text("custom_site_json"),
+  storefrontVersion: integer("storefront_version").notNull().default(0),
   createdAt: integer("created_at").notNull(),
 });
 export const creatorSessions = sqliteTable(
