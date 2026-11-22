@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { VisitReport } from "@/lib/reporting";
 
 const date = new Intl.DateTimeFormat("en", {
@@ -98,7 +98,13 @@ function VisitChart({ days }: { days: VisitReport["days"] }) {
   );
 }
 
-export default function VisitAnalytics({ report }: { report: VisitReport }) {
+export default function VisitAnalytics({
+  report,
+  rangeControl,
+}: {
+  report: VisitReport;
+  rangeControl?: ReactNode;
+}) {
   const { days, total, previous, products } = report;
   const busiest = days.reduce(
     (best, d) => (d.count > best.count ? d : best),
@@ -109,6 +115,7 @@ export default function VisitAnalytics({ report }: { report: VisitReport }) {
     <section className="panel visit-panel" aria-label="Product views">
       <div className="panel-heading">
         <h2>Product views</h2>
+        {rangeControl}
       </div>
       <p>
         One view per visitor, per product, per UTC day. Creator previews are
@@ -135,33 +142,31 @@ export default function VisitAnalytics({ report }: { report: VisitReport }) {
           {total > 0 && <small>{number.format(busiest.count)} views</small>}
         </div>
       </div>
+      <VisitChart days={days} />
+      <h3>Views by product</h3>
       {total === 0 ? (
         <p className="visit-empty">No measured product views in this period.</p>
       ) : (
-        <>
-          <VisitChart days={days} />
-          <h3>Views by product</h3>
-          <ul className="visit-ranking">
-            {products.map((p) => (
-              <li key={p.id}>
-                <div>
-                  <b>{p.title}</b>
-                  <span>
-                    {number.format(p.count)} views ·{" "}
-                    {percent.format(p.count / total)}
-                  </span>
-                </div>
-                <div className="visit-track">
-                  <i style={{ width: (100 * p.count) / total + "%" }} />
-                </div>
-                <small>
-                  {number.format(p.orders)} paid orders ·{" "}
-                  {number.format(p.signups)} free signups
-                </small>
-              </li>
-            ))}
-          </ul>
-        </>
+        <ul className="visit-ranking">
+          {products.map((p) => (
+            <li key={p.id}>
+              <div>
+                <b>{p.title}</b>
+                <span>
+                  {number.format(p.count)} views ·{" "}
+                  {percent.format(p.count / total)}
+                </span>
+              </div>
+              <div className="visit-track">
+                <i style={{ width: (100 * p.count) / total + "%" }} />
+              </div>
+              <small>
+                {number.format(p.orders)} paid orders ·{" "}
+                {number.format(p.signups)} free signups
+              </small>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

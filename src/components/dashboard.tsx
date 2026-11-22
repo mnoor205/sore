@@ -172,7 +172,7 @@ export default function Dashboard({ section }: { section: string }) {
     const version = ++requestVersion.current;
     try {
       const workspace = await api<Workspace>(
-        `workspace?days=${days}&visits=${section === "overview" ? 1 : 0}`,
+        `workspace?days=${days}&visits=${section === "overview" || section === "analytics" ? 1 : 0}`,
       );
       if (version !== requestVersion.current) return;
       setW(workspace);
@@ -533,9 +533,15 @@ export default function Dashboard({ section }: { section: string }) {
               </button>
             </div>
           )}
-          {section === "overview" && showVisits && w.visits && (
-            <VisitAnalytics key={w.visits.days[0]?.day} report={w.visits} />
-          )}
+          {(section === "analytics" ||
+            (section === "overview" && showVisits)) &&
+            w.visits && (
+              <VisitAnalytics
+                key={w.visits.days[0]?.day}
+                report={w.visits}
+                rangeControl={section === "analytics" ? dateFilter : undefined}
+              />
+            )}
           {section === "overview" &&
             (!live.length ||
               !(w.summary.paidOrders || w.summary.freeSignups || views)) && (
