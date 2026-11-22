@@ -5,6 +5,10 @@
 - MCP resource discovery: https://mcp.getsore.me/.well-known/oauth-protected-resource/mcp
 - Email Worker: `coachlane-email-staging`, with workers.dev disabled, a Queue consumer and five-minute cron.
 
+## Required billing address at checkout — November 22, 2026
+
+Deployed app version `56c62a0d-b27c-4c0b-b9af-b27eb7b6d1a3` (previous: `ed112400-08d9-4355-b0a8-bb1df966f6de`). Lifetime payment links and subscription checkout now require a full billing address, so Stripe Tax has an exact location for every buyer. The existing $99 link `plink_1UegvULoa6oioieGMRFzD6w7` was updated in Stripe to match. The first end-to-end test purchase ($99, tier 0) was recorded and activated lifetime access on its store; the homepage now shows 4 left at $99. 91 service tests and 16 bundled-app tests passed.
+
 ## Always-on platform sales tax — November 22, 2026
 
 Deployed app version `ed112400-08d9-4355-b0a8-bb1df966f6de` (previous: `f57fc8c2-fd49-4502-a29c-6b863860782b`). Removed the `PLATFORM_TAX_ENABLED` switch: lifetime payment links and subscription checkout always request Stripe automatic tax, which adds sales tax only where the Sore sandbox has a tax registration (none yet, so checkout still shows $0 tax). The existing $99 tier link `plink_1UegvULoa6oioieGMRFzD6w7` was updated in Stripe to enable automatic tax. 91 service tests and 16 bundled-app tests passed; `/` returns 200 and `/lifetime` still redirects to the $99 link.

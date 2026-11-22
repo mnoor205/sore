@@ -1189,6 +1189,7 @@ it("founding price starts at $99 and rises $10 every five buys", async () => {
   expect(link.get("line_items[0][price]")).toBe("price_t0");
   expect(link.get("metadata[sore_offer]")).toBe("founding_lifetime");
   expect(link.get("automatic_tax[enabled]")).toBe("true");
+  expect(link.get("billing_address_collection")).toBe("required");
   // Asking again reuses the stored tier link instead of creating another.
   r = await call("billing", { storeId: "b", kind: "lifetime" });
   expect(r.data.url).toContain("plink_t0");

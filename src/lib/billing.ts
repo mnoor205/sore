@@ -159,6 +159,7 @@ export async function billingCheckout(
         cancel_url: `${env.APP_URL}/dashboard/billing`,
         // Stripe Tax adds sales tax wherever the account has a registration.
         automatic_tax: { enabled: true },
+        billing_address_collection: "required",
         customer_update: { address: "auto" },
       },
       { idempotencyKey: `billing-${reservation}` },
