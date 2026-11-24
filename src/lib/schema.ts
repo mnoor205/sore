@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   sqliteTable,
   text,
@@ -23,10 +24,15 @@ export const stores = sqliteTable("stores", {
   paymentsReady: integer("payments_ready").notNull().default(0),
   taxEnabled: integer("tax_enabled").notNull().default(0),
   demo: integer().notNull().default(0),
+  trackingEnabled: integer("tracking_enabled").notNull().default(1),
+  excludeOwnerVisits: integer("exclude_owner_visits").notNull().default(1),
   linkCopiedAt: integer("link_copied_at"),
   publicationState: text("publication_state").notNull().default("published"),
   stylePreset: text("style_preset").notNull().default("studio"),
   whatTheySell: text("what_they_sell").notNull().default(""),
+  themeJson: text("theme_json").notNull().default("{}"),
+  customSiteJson: text("custom_site_json"),
+  storefrontVersion: integer("storefront_version").notNull().default(0),
   createdAt: integer("created_at").notNull(),
 });
 export const creatorSessions = sqliteTable(
@@ -151,7 +157,17 @@ export const orders = sqliteTable(
     refundedAt: integer("refunded_at"),
     isTest: integer("is_test").notNull().default(0),
   },
-  (t) => [index("orders_store").on(t.storeId)],
+  (t) => [
+    index("orders_store").on(t.storeId),
+    index("analytics_checkout_starts")
+      .on(t.storeId, t.createdAt)
+      .where(
+        sql`${t.isTest}=0 AND ${t.status}<>'free' AND ${t.sessionId} IS NOT NULL`,
+      ),
+    index("analytics_purchases")
+      .on(t.storeId, t.paidAt)
+      .where(sql`${t.isTest}=0 AND ${t.status}='paid'`),
+  ],
 );
 export const views = sqliteTable(
   "views",

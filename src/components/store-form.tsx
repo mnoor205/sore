@@ -1,8 +1,14 @@
 "use client";
 import { Wordmark } from "./brand";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "./shared";
+import {
+  theme,
+  themeLabels,
+  themeOptions,
+  type StoreTheme,
+} from "@/lib/storefront-theme";
 export type Store = {
   id: string;
   ownerId: string;
@@ -24,15 +30,35 @@ export type Store = {
   linkCopiedAt: number | null;
   paymentsReady: number;
   stripeAccount: string | null;
+  themeJson?: string;
+};
+export type StoreFormValues = {
+  slug: string;
+  name: string;
+  bio: string;
+  photo: string;
+  accent: string;
+  supportEmail: string;
+  audience: string;
+  goals: string;
+  whatTheySell: string;
+  stylePreset: string;
+  currency: string;
+  timezone: string;
+  socials: Record<string, string | undefined>;
+  theme: StoreTheme;
 };
 export default function StoreForm({
   store,
   onSaved,
+  onChange,
 }: {
   store?: Store;
   onSaved: () => void;
+  /** Called with every unsaved edit, e.g. to drive a live preview. */
+  onChange?: (values: StoreFormValues) => void;
 }) {
-  const [f, setF] = useState({
+  const [f, setF] = useState<StoreFormValues>({
       slug: store?.slug || "",
       name: store?.name || "",
       bio: store?.bio || "",
@@ -46,11 +72,17 @@ export default function StoreForm({
       currency: store?.currency || "usd",
       timezone: store?.timezone || "America/Chicago",
       socials: store ? JSON.parse(store.socials) : {},
+      theme: theme(store?.themeJson),
     }),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const change = (key: string, v: string) =>
     setF((old) => ({ ...old, [key]: v }));
+  const changeTheme = (key: keyof StoreTheme, v: string) =>
+    setF((old) => ({ ...old, theme: { ...old.theme, [key]: v } }));
+  useEffect(() => {
+    onChange?.(f);
+  }, [f, onChange]);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -195,6 +227,59 @@ export default function StoreForm({
             <option value="botanical">Botanical</option>
           </select>
         </label>
+        <div className="form-row">
+          {(
+            [
+              ["background", "Background"],
+              ["font", "Font"],
+              ["corners", "Corners"],
+              ["buttons", "Buttons"],
+              ["align", "Profile alignment"],
+              ["layout", "Product layout"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key}>
+              {label}
+              <select
+                value={f.theme[key]}
+                onChange={(e) => changeTheme(key, e.target.value)}
+              >
+                {themeOptions[key].map((o) => (
+                  <option key={o} value={o}>
+                    {themeLabels[o]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+        <label>
+          Announcement bar <span className="optional">Optional</span>
+          <input
+            maxLength={140}
+            value={f.theme.announcement}
+            placeholder="e.g. New: the Client Finder workbook is here"
+            onChange={(e) => changeTheme("announcement", e.target.value)}
+          />
+        </label>
+        <div className="form-row">
+          <label>
+            Section heading
+            <input
+              maxLength={60}
+              value={f.theme.sectionLabel}
+              onChange={(e) => changeTheme("sectionLabel", e.target.value)}
+            />
+          </label>
+          <label>
+            Footer text
+            <input
+              maxLength={120}
+              value={f.theme.footerText}
+              onChange={(e) => changeTheme("footerText", e.target.value)}
+            />
+          </label>
+        </div>
         <label>
           What you sell
           <input

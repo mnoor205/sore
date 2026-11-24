@@ -1,6 +1,9 @@
 "use client";
+import ReportRange from "./report-range";
+import VisitAnalytics from "./visit-analytics";
+import type { VisitReport } from "@/lib/reporting";
 import Brand from "./brand";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -37,15 +40,16 @@ import {
   ArrowUp,
   ArrowDown,
   RefreshCw,
-  CalendarDays,
   Landmark,
   ChartNoAxesCombined,
 } from "lucide-react";
 import StripeAccount, { CountrySelect } from "./stripe-account";
 import type { StripeCountry } from "@/lib/stripe-countries";
+import StorefrontAnalytics from "./storefront-analytics";
 import LaunchHome from "./launch-home";
 import ProductEditor, { type Product } from "./product-editor";
-import StoreForm, { type Store } from "./store-form";
+import { type Store } from "./store-form";
+import StorefrontEditor from "./storefront-editor";
 import StanImport from "./stan-import";
 import { api, Badge, Empty, Modal, money, Spinner } from "./shared";
 type Summary = {
@@ -73,6 +77,7 @@ type Workspace = {
   products: Product[];
   summary: Summary;
   performance: Performance;
+  visits: VisitReport | null;
   entitlement: {
     kind: string;
     status: string;
@@ -124,6 +129,7 @@ const navigation = [
   { id: "storefront", name: "My storefront", icon: StoreIcon },
   { id: "customers", name: "Customers", icon: Users },
   { id: "orders", name: "Orders", icon: ShoppingBag },
+  { id: "analytics", name: "Analytics", icon: ChartNoAxesCombined },
   { id: "payments", name: "Payments", icon: Landmark },
   { id: "discounts", name: "Discounts", icon: Ticket },
 ];
@@ -135,16 +141,24 @@ const settings = [
 const descriptions: Record<string, string> = {
   overview: "Your products, sales, and next steps.",
   products: "Manage what you sell.",
-  storefront: "Your profile, your style, your bio link.",
+  storefront:
+    "Describe changes to the AI or edit directly, then preview on mobile and desktop.",
   customers: "Everyone who bought or downloaded from you.",
   orders: "Payments and delivery, in one place.",
   discounts: "Create an offer for your next promotion.",
   "connect-ai": "Give your assistant the context behind your store.",
+  analytics: "See how people find and use your storefront.",
   payments: "Sales, payouts, and your Stripe account.",
   billing: "Your plan and payment details.",
   settings: "Preferences and store details.",
 };
-export default function Dashboard({ section }: { section: string }) {
+export default function Dashboard({
+  section,
+  subsection,
+}: {
+  section: string;
+  subsection?: string;
+}) {
   const router = useRouter();
   const [w, setW] = useState<Workspace | null>(null),
     [error, setError] = useState(""),
@@ -161,16 +175,23 @@ export default function Dashboard({ section }: { section: string }) {
     [stan, setStan] = useState(false),
     [definitions, setDefinitions] = useState(false),
     [country, setCountry] = useState<StripeCountry | "">("");
+  const requestVersion = useRef(0);
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
     try {
-      setW(await api<Workspace>(`workspace?days=${days}`));
+      const workspace = await api<Workspace>(
+        `workspace?days=${days}&visits=${section === "overview" || section === "analytics" ? 1 : 0}`,
+      );
+      if (version !== requestVersion.current) return;
+      setW(workspace);
       setError("");
     } catch (e) {
+      if (version !== requestVersion.current) return;
       const message = (e as Error).message;
       if (message.includes("Create your store")) router.push("/onboarding");
       else setError(message);
     }
-  }, [days, router]);
+  }, [days, router, section]);
   useEffect(() => {
     load();
   }, [load]);
@@ -276,7 +297,9 @@ export default function Dashboard({ section }: { section: string }) {
             : settings.find((n) => n.id === section)?.name ||
               navigation.find((n) => n.id === section)?.name ||
               "Overview";
-  const views = w.performance.products.reduce((a, p) => a + (p.views || 0), 0),
+  const views = w.visits?.total ?? 0,
+    showVisits =
+      s.publicationState === "published" || views > 0 || live.length > 0,
     tasks = [
       {
         name: "Make your storefront yours",
@@ -314,20 +337,12 @@ export default function Dashboard({ section }: { section: string }) {
     </button>
   );
   const dateFilter = (
-    <div className="date-filter">
-      <CalendarDays size={16} />
-      <select
-        aria-label="Reporting date range"
-        value={days}
-        onChange={(e) => setDays(e.target.value)}
-      >
-        <option value="7">Last 7 days</option>
-        <option value="30">Last 30 days</option>
-        <option value="90">Last 90 days</option>
-        <option value="365">Last 365 days</option>
-      </select>
-      <ChevronDown size={14} />
-    </div>
+    <ReportRange
+      label="Product views date range"
+      days={days}
+      onChange={setDays}
+      includeYear
+    />
   );
   return (
     <div className="app-shell">
@@ -459,18 +474,19 @@ export default function Dashboard({ section }: { section: string }) {
             </button>
           </div>
         </header>
-        <main className="dashboard-content">
+        <main className="dashboard-content" data-section={section}>
           <div className="page-heading">
             <div>
               {section === "overview" && (
                 <div className="greeting">YOUR WORKSPACE</div>
               )}
               <h1>{title}</h1>
-              <p>{descriptions[section]}</p>
+              {section !== "analytics" && <p>{descriptions[section]}</p>}
             </div>
             <div className="actions">
               {section === "overview" &&
-                !!(w.summary.paidOrders || w.summary.freeSignups || views) &&
+                (showVisits ||
+                  !!(w.summary.paidOrders || w.summary.freeSignups)) &&
                 dateFilter}
               {section === "products" && (
                 <>
@@ -517,6 +533,15 @@ export default function Dashboard({ section }: { section: string }) {
               </button>
             </div>
           )}
+          {(section === "analytics" ||
+            (section === "overview" && showVisits)) &&
+            w.visits && (
+              <VisitAnalytics
+                key={w.visits.days[0]?.day}
+                report={w.visits}
+                rangeControl={section === "analytics" ? dateFilter : undefined}
+              />
+            )}
           {section === "overview" &&
             (!live.length ||
               !(w.summary.paidOrders || w.summary.freeSignups || views)) && (
@@ -561,7 +586,7 @@ export default function Dashboard({ section }: { section: string }) {
                     <ExternalLink size={17} />
                   </a>
                 </div>
-                <div className="stat-grid">
+                <div className="stat-grid sales-stats">
                   {[
                     {
                       label: "Gross product sales",
@@ -580,14 +605,6 @@ export default function Dashboard({ section }: { section: string }) {
                       value: String(w.summary.freeSignups),
                       icon: Download,
                       note: "Resource requests",
-                    },
-                    {
-                      label: "Product views",
-                      value: views ? String(views) : "—",
-                      icon: Eye,
-                      note: views
-                        ? "Measured visitor views"
-                        : "No measured views yet",
                     },
                   ].map((m) => (
                     <div className="stat-card" key={m.label}>
@@ -979,43 +996,15 @@ export default function Dashboard({ section }: { section: string }) {
             </>
           )}
           {section === "storefront" && (
-            <div className="storefront-layout">
-              <section className="panel settings-panel">
-                <StoreForm
-                  store={s}
-                  onSaved={() => {
-                    load();
-                    setToast("Your storefront has been updated.");
-                  }}
-                />
-              </section>
-              <aside className="sticky-preview">
-                <div className="preview-label">
-                  <span>YOUR STOREFRONT</span>
-                  <button
-                    className="icon-button"
-                    aria-label="Copy storefront link"
-                    onClick={() => copy(window.location.origin + "/" + s.slug)}
-                  >
-                    <Copy size={16} />
-                  </button>
-                </div>
-                <div className="phone-preview">
-                  <iframe
-                    title="Mobile storefront preview"
-                    src="/dashboard/preview"
-                    loading="lazy"
-                  />
-                </div>
-                <button
-                  className="button outline wide"
-                  onClick={() => setPreview(true)}
-                >
-                  <Eye size={16} />
-                  Open full preview
-                </button>
-              </aside>
-            </div>
+            <StorefrontEditor
+              store={s}
+              initialTab={subsection === "manual" ? "manual" : "ai"}
+              onSaved={() => {
+                load();
+                setToast("Your storefront has been updated.");
+              }}
+              onCopyLink={() => copy(window.location.origin + "/" + s.slug)}
+            />
           )}
           {["customers", "orders"].includes(section) && (
             <section className="panel">
@@ -1508,9 +1497,8 @@ export default function Dashboard({ section }: { section: string }) {
                         : "Get founding lifetime access"}
                   </button>
                   <small>
-                    The price rises every few founding buys and is locked when
-                    you open checkout. No automatic conversion to a
-                    subscription.
+                    The price rises $10 after every 5 founding buys. One
+                    payment, no automatic conversion to a subscription.
                   </small>
                 </section>
                 <section className="pricing-card">
@@ -1583,6 +1571,13 @@ export default function Dashboard({ section }: { section: string }) {
                 </p>
               </div>
             </>
+          )}
+          {section === "analytics" && (
+            <StorefrontAnalytics
+              key={s.id}
+              slug={s.slug}
+              products={w.products}
+            />
           )}
           {section === "payments" && (
             <div className="settings-stack payments-page">

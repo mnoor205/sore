@@ -36,11 +36,11 @@ R2_BUCKET_NAME=
 EMAIL_API_KEY=
 EMAIL_FROM=
 
-# Leave false until PLATFORM tax settings, tax categories, address and registrations
-# have been independently verified. This enables calculation, not tax remittance.
-PLATFORM_TAX_ENABLED=false
-
 # Hosted branded OTP also needs a native LOGIN_EMAIL send_email binding.
 # AUTH_PROVIDER=email
 # OTP_FROM=login@getsore.me
 # Keep ACCESS_ISSUER fixed to preserve creator ownership.
+
+# App Worker only. The Analytics Engine SQL API requires Account Analytics Read.
+ANALYTICS_ACCOUNT_ID=
+ANALYTICS_READ_TOKEN=

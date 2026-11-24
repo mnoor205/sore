@@ -8,9 +8,19 @@ import StorefrontPhones from "./storefront-phones";
 import SellingWalkthrough from "./selling-walkthrough";
 import AiCompatibility from "./ai-compatibility";
 import FoundingPriceChange from "./founding-price-change";
-function OfferLink({ price }: { price: number | undefined }) {
+function OfferLink({
+  price,
+  available,
+}: {
+  price: number | undefined;
+  available: boolean;
+}) {
+  // /lifetime sends the buyer to the current price tier's Stripe Payment Link.
   return (
-    <a className="sf-button sf-primary" href="#lifetime">
+    <a
+      className="sf-button sf-primary"
+      href={available ? "/lifetime" : "#lifetime"}
+    >
       {price === undefined
         ? "Explore lifetime access"
         : `Get lifetime access — $${price}`}
@@ -25,23 +35,12 @@ export default function MarketingPage({
   mcpUrl: string;
 }) {
   const q = offer.quote,
-    price = q?.price;
+    price = q?.price,
+    open = offer.checkoutAvailable;
   const faqs = [
     [
       "What can I sell?",
       "PDFs, templates, guides, workbooks, and other digital downloads. Free resources, too. Courses, memberships, bookings, and email marketing aren’t included.",
-    ],
-    [
-      "Can I bring my products over from Stan?",
-      "Paste your public Stan store link to copy your listings and images into private drafts. Add your download files, review each listing, and publish when you’re ready.",
-    ],
-    [
-      "Can I grow my email list with a free download?",
-      "Offer a free workbook in exchange for an email address. Readers can opt in separately to marketing. Export your contacts and their opt-in status as a CSV for your email tool.",
-    ],
-    [
-      "Can I run a launch discount?",
-      "Create a coupon for your promotion. Set an expiration date or limit how many times buyers can use it.",
     ],
     [
       "Which AI assistants work with Sore?",
@@ -57,11 +56,7 @@ export default function MarketingPage({
     ],
     [
       "Any limits or separate costs?",
-      `${offer.quotas.products} products, ${offer.quotas.storageMB} MB storage, ${offer.quotas.uploadMB} MB per file. Founding members pay Sore no platform fee on sales. Stripe processing fees, AI plans, and applicable taxes are separate. Final purchase and refund terms will be confirmed before checkout opens.`,
-    ],
-    [
-      "How will sales tax work?",
-      "Once Stripe Tax is enabled, checkout will calculate and collect applicable sales tax where you’re registered to collect it. You’ll still be responsible for registration, filing, and remittance.",
+      `${offer.quotas.products} products, ${offer.quotas.storageMB} MB storage, ${offer.quotas.uploadMB} MB per file. AI plans, Stripe fees, and applicable taxes are separate. The platform transaction fee is currently 0%.`,
     ],
     [
       "Can you help me get set up?",
@@ -69,7 +64,7 @@ export default function MarketingPage({
     ],
     [
       "What’s still being activated?",
-      "Paid checkout, direct uploads, and delivery email are being activated. You can start setting up your store now.",
+      "Storefront payments, direct uploads, and delivery email are being activated. You can start setting up your store now.",
     ],
   ];
   return (
@@ -89,7 +84,7 @@ export default function MarketingPage({
             <Link href="/sign-in" className="sf-login">
               Log in
             </Link>
-            <OfferLink price={price} />
+            <OfferLink price={price} available={open} />
           </div>
         </div>
       </header>
@@ -104,10 +99,9 @@ export default function MarketingPage({
           </h1>
           <p>
             Sell workbooks, templates, and downloads from one link in your bio.
-            {" "}Founding members pay 0% platform fees on every sale.
           </p>
           <div className="sf-hero-actions">
-            <OfferLink price={price} />
+            <OfferLink price={price} available={open} />
             <a className="sf-text-link" href="#storefront">
               See the storefronts
             </a>
@@ -150,7 +144,11 @@ export default function MarketingPage({
                 <>
                   {q.remaining} more {q.remaining === 1 ? "buyer" : "buyers"}.
                   <br />
-                  <span>Then it’s ${q.nextPrice}.</span>
+                  <span>
+                    {q.nextPrice === null
+                      ? "Then the founding offer closes."
+                      : `Then it’s $${q.nextPrice}.`}
+                  </span>
                 </>
               ) : (
                 <>
@@ -162,12 +160,6 @@ export default function MarketingPage({
             </h2>
             <p>One payment. Lifetime access.</p>
             <ul className="sf-included">
-              <li>
-                <Check size={17} /> 0% platform fees on sales
-              </li>
-              <li>
-                <Check size={17} /> Coming soon: automatic sales tax at checkout
-              </li>
               <li>
                 <Check size={17} /> Your storefront + digital products
               </li>
@@ -193,12 +185,26 @@ export default function MarketingPage({
               <span>USD · one time</span>
             </div>
             <FoundingPriceChange quote={q} />
-            <button className="sf-button sf-primary" disabled>
-              {price === undefined
-                ? "Lifetime pricing unavailable"
-                : `Get lifetime access — $${price}`}
-            </button>
-            <p className="sf-checkout-note">Checkout is not open yet.</p>
+            {open && price !== undefined ? (
+              <>
+                <a className="sf-button sf-primary" href="/lifetime">
+                  Get lifetime access — ${price}
+                </a>
+                <p className="sf-checkout-note">
+                  Secure checkout by Stripe. Pay with the email you’ll sign in
+                  with and lifetime access is added to your account.
+                </p>
+              </>
+            ) : (
+              <>
+                <button className="sf-button sf-primary" disabled>
+                  {price === undefined
+                    ? "Lifetime pricing unavailable"
+                    : `Get lifetime access — $${price}`}
+                </button>
+                <p className="sf-checkout-note">Checkout is not open yet.</p>
+              </>
+            )}
             <Link href="/sign-up" className="sf-text-link">
               Start setting up your store
             </Link>

@@ -4,7 +4,7 @@ import {
   convertV4MiniflareOptions,
   kCurrentWorker,
 } from "miniflare";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import {
   accessIssuer,
   accessAudience,
@@ -79,17 +79,11 @@ beforeAll(async () => {
   );
   const db = await mf.getD1Database("DB");
   await db.exec(
-    readFileSync("migrations/0001_initial.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0002_delivery_refunds_grants.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0003_setup_progress.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0004_platform_refunds.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0005_guided_setup_and_drafts.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0006_cloudflare_email_auth.sql", "utf8"),
+    readdirSync("migrations")
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((name) => readFileSync("migrations/" + name, "utf8"))
+      .join("\n"),
   );
   await db.exec(readFileSync("fixtures/demo.sql", "utf8"));
   const r = await request("/api/dev/session", { workspace: "demo" });
@@ -153,43 +147,30 @@ it("hosted mode disables demo login and accurately explains missing creator auth
     await hosted.dispose();
   }
 });
-it("quotes founding prices from completed real purchases and excludes demo and pending sessions", async () => {
+it("quotes the founding tier the payment-link ladder has reached", async () => {
   const db = await mf.getD1Database("DB");
-  await db
-    .prepare(
-      "INSERT INTO stores(id,owner_id,slug,name,demo,created_at) VALUES ('offer-test','offer-owner','offer-test','Offer test',0,0)",
-    )
-    .run();
   const page = async () => (await request("/", undefined, "GET", "")).text();
   const check = async (price: number, remaining: number, next: number) => {
     const html = await page();
     expect(html).toContain(`data-current-price="${price}"`);
     expect(html).toContain(`data-price-remaining="${remaining}"`);
     expect(html).toContain(`data-next-price="${next}"`);
+    // Without Stripe credentials nothing links to checkout.
+    expect(html).not.toContain('href="/lifetime"');
   };
   try {
-    await db
-      .prepare(
-        "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES ('offer-pending','offer-test','lifetime','pending','cs_pending',0,0),('offer-failed','offer-test','lifetime','failed','cs_failed',0,0),('offer-demo','demo-store','lifetime','paid','cs_demo',0,0),('offer-sub','offer-test','subscription','paid','cs_sub',0,0)",
-      )
-      .run();
     await check(99, 5, 109);
-    for (let i = 0; i < 10; i++) {
+    // Tiers Stripe retired (5 completed checkouts each) move the quote up $10.
+    for (const tier of [0, 1])
       await db
         .prepare(
-          "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES (?,'offer-test','lifetime','paid',?,0,0)",
+          "INSERT INTO lifetime_links(product_id,tier,amount,size,price_id,link_id,url,sold_out,created_at) VALUES ('',?,?,5,?,?,'https://buy.stripe.com/x',1,0)",
         )
-        .bind(`offer-paid-${i}`, `cs_paid_${i}`)
+        .bind(tier, 9900 + 1000 * tier, `price_${tier}`, `plink_${tier}`)
         .run();
-      if (i === 3) await check(99, 1, 109);
-      if (i === 4) await check(109, 5, 119);
-      if (i === 9) await check(119, 5, 129);
-    }
+    await check(119, 5, 129);
   } finally {
-    await db
-      .prepare("DELETE FROM billing_sessions WHERE id LIKE 'offer-%'")
-      .run();
-    await db.prepare("DELETE FROM stores WHERE id='offer-test'").run();
+    await db.prepare("DELETE FROM lifetime_links").run();
   }
 });
 it("serves the actual OpenNext build and its static assets in workerd", async () => {
@@ -219,7 +200,9 @@ it("serves the actual OpenNext build and its static assets in workerd", async ()
 it("protects creator APIs and returns truthful demo metrics without private public payloads", async () => {
   const unauth = await request("/api/workspace", undefined, "GET", "");
   expect(unauth.status).toBe(401);
-  const w = await json("/api/workspace");
+  const w = await json("/api/workspace?days=7&visits=1");
+  expect(w.visits).toMatchObject({ total: 0, previous: 0, products: [] });
+  expect(w.visits.days).toHaveLength(7);
   expect(w.summary.grossProductSales).toBe(0);
   expect(w.products).toHaveLength(3);
   const pub = await json("/api/public/jamie-lane");
@@ -526,4 +509,289 @@ it("optional product sections render in their chosen order and public samples st
     "",
   );
   expect(paidFile.status).toBe(404);
+});
+
+it("public website images are anonymous, raster-only and isolated from paid downloads", async () => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRz8AAAAASUVORK5CYII=",
+    "base64",
+  );
+  const upload = await json("/api/uploads", {
+    name: "website.png",
+    size: png.length,
+    type: "image/png",
+    purpose: "image",
+  });
+  expect(
+    (
+      await mf.dispatchFetch(upload.url, {
+        method: "PUT",
+        headers: {
+          Cookie: sessionCookie,
+          Origin: origin,
+          "Content-Type": "image/png",
+          "Content-Length": String(png.length),
+        },
+        body: png,
+      })
+    ).status,
+  ).toBe(200);
+  await json("/api/uploads/complete", { assetId: upload.assetId });
+  const response = await request(
+    "/media/" + upload.assetId,
+    undefined,
+    "GET",
+    "",
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toBe("image/png");
+  expect(response.headers.get("content-security-policy")).toBe(
+    "default-src 'none'",
+  );
+  expect(response.headers.get("content-disposition")).toBe("inline");
+  expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+  expect(response.headers.get("cache-control")).toContain("immutable");
+  expect(Buffer.from(await response.arrayBuffer())).toEqual(png);
+  expect(
+    (await request("/media/demo-reset", undefined, "GET", "")).status,
+  ).toBe(404);
+  expect((await request("/media/missing", undefined, "GET", "")).status).toBe(
+    404,
+  );
+  expect(
+    (
+      await request("/api/uploads", {
+        name: "bad.svg",
+        size: 12,
+        type: "image/svg+xml",
+        purpose: "image",
+      })
+    ).status,
+  ).toBe(400);
+  const state = (await (
+    await mf.dispatchFetch(origin + "/api/storefront/ai", {
+      headers: { Cookie: sessionCookie, Origin: origin },
+    })
+  ).json()) as { images: { id: string; name: string; url: string }[] };
+  expect(state.images).toContainEqual({
+    id: upload.assetId,
+    name: "website.png",
+    url: `${origin}/media/${upload.assetId}`,
+  });
+});
+
+it("custom storefront drafts publish/discard/reset with concurrency and opaque sandbox on public and private previews", async () => {
+  const ai = await json("/api/storefront/ai");
+  expect(ai.draft).toBeNull();
+  expect(ai.model).toBe("anthropic/claude-haiku-5.5");
+  expect(ai.connected).toBe(false);
+  expect(
+    (
+      await request("/api/storefront/ai/chat", {
+        message: "Build a website",
+        expectedVersion: null,
+      })
+    ).status,
+  ).toBe(503);
+  for (const path of ["/dashboard/storefront", "/dashboard/storefront/manual"])
+    expect((await request(path, undefined, "GET")).status).toBe(200);
+  expect(ai.starter.js).toContain("Sore.products");
+  expect(ai.commerce.products.length).toBeGreaterThan(0);
+  expect(JSON.stringify(ai.commerce)).not.toContain("deliveryUrl");
+  const store = (await json("/api/workspace")).store;
+  const site = {
+    html: "<main>Custom draft content<script>window.__MERCHANT_EXECUTED__=true</script></main>",
+    css: "body{color:purple}",
+    js: "console.log(Sore.products)",
+  };
+  const first = await json("/api/storefront/site", {
+    site,
+    expectedVersion: null,
+  });
+  expect(first.draftVersion).toBeGreaterThan(0);
+  expect(
+    (await request("/api/storefront/site", { site, expectedVersion: null }))
+      .status,
+  ).toBe(409);
+  expect(
+    (
+      await request("/api/storefront/site", {
+        site: { ...site, html: "x".repeat(49153) },
+        expectedVersion: first.draftVersion,
+      })
+    ).status,
+  ).toBe(400);
+  // Chunked / missing Content-Length requests still enforce the byte cap.
+  expect(
+    (
+      await request("/api/storefront/site", {
+        site: { ...site, html: "x".repeat(660000) },
+        expectedVersion: first.draftVersion,
+      })
+    ).status,
+  ).toBe(413);
+  const beforeResponse = await request("/" + store.slug, undefined, "GET", "");
+  // The host page stops the sandboxed frame from navigating to off-site pages.
+  expect(beforeResponse.headers.get("content-security-policy")).toBe(
+    "frame-src 'self'",
+  );
+  const before = await beforeResponse.text();
+  expect(before).not.toContain("Custom draft content");
+  const assertSandbox = (html: string) => {
+    expect(html).toMatch(/<iframe[^>]*sandbox="allow-scripts"/);
+    expect(html).not.toContain('sandbox="allow-scripts allow-same-origin"');
+    expect(html).toContain('srcDoc="&lt;!doctype html&gt;');
+    expect(html).toContain("Content-Security-Policy");
+    for (const directive of [
+      "connect-src",
+      "form-action",
+      "base-uri",
+      "worker-src",
+      "frame-src",
+    ])
+      expect(html).toContain(directive);
+    expect(html).not.toContain("<script>window.__MERCHANT_EXECUTED__");
+    expect(html).toContain("name=&quot;viewport&quot;");
+    expect(html).not.toContain("Products &amp; verified prices");
+    expect(html).not.toContain("Merchant-created website");
+  };
+  const draftPreview = await (
+    await request("/dashboard/preview?source=ai", undefined, "GET")
+  ).text();
+  expect(draftPreview).toContain("Custom draft content");
+  assertSandbox(draftPreview);
+  for (const source of ["live", "manual"])
+    expect(
+      await (
+        await request("/dashboard/preview?source=" + source, undefined, "GET")
+      ).text(),
+    ).not.toContain("Custom draft content");
+  expect(
+    (
+      await request("/api/storefront/ai/publish", {
+        expectedVersion: first.draftVersion + 10,
+      })
+    ).status,
+  ).toBe(409);
+  expect(
+    (
+      await request("/api/storefront/ai/discard", {
+        expectedVersion: first.draftVersion + 10,
+      })
+    ).status,
+  ).toBe(409);
+  await json("/api/storefront/ai/publish", {
+    expectedVersion: first.draftVersion,
+  });
+  const live = await (
+    await request("/" + store.slug, undefined, "GET", "")
+  ).text();
+  expect(live).toContain("Custom draft content");
+  assertSandbox(live);
+  expect(live).toContain("<title>" + store.name + "</title>");
+  for (const source of ["live", "manual", "ai"])
+    assertSandbox(
+      await (
+        await request("/dashboard/preview?source=" + source, undefined, "GET")
+      ).text(),
+    );
+  const product = ai.commerce.products.find((p: any) => p.kind === "resource");
+  expect(product).toBeDefined();
+  expect(
+    (await request(product.checkoutUrl, undefined, "GET", "")).status,
+  ).toBe(200);
+  // There is no raw HTML/code endpoint that can execute with platform authority.
+  const raw = await request("/api/storefront/site", undefined, "GET", "");
+  expect(raw.status).not.toBe(200);
+  expect(raw.headers.get("content-type")).toContain("application/json");
+  const reset = await json("/api/storefront/site", {
+    site: null,
+    expectedVersion: null,
+  });
+  expect(reset.draftVersion).toBeGreaterThan(first.draftVersion);
+  expect(
+    (
+      await request("/api/storefront/ai/publish", {
+        expectedVersion: first.draftVersion,
+      })
+    ).status,
+  ).toBe(409);
+  await json("/api/storefront/ai/discard", {
+    expectedVersion: reset.draftVersion,
+  });
+  expect(
+    await (await request("/" + store.slug, undefined, "GET", "")).text(),
+  ).toContain("Custom draft content");
+  const resetAgain = await json("/api/storefront/site", {
+    site: null,
+    expectedVersion: null,
+  });
+  await json("/api/storefront/ai/publish", {
+    expectedVersion: resetAgain.draftVersion,
+  });
+  const fallback = await (
+    await request("/" + store.slug, undefined, "GET", "")
+  ).text();
+  expect(fallback).not.toContain("Custom draft content");
+  expect(fallback).not.toMatch(/<iframe[^>]*sandbox="allow-scripts"/);
+  expect(
+    (await json("/api/storefront/ai")).messages.map((m: any) => m.role),
+  ).toEqual(["event", "event", "event"]);
+});
+it("authorizes analytics and tracking preferences from the session storefront", async () => {
+  const db = await mf.getD1Database("DB");
+  await db
+    .prepare(
+      "INSERT INTO stores(id,owner_id,slug,name,created_at) VALUES ('traffic-b','traffic-owner','traffic-b','Other storefront',0)",
+    )
+    .run();
+  try {
+    expect((await request("/api/analytics", undefined, "GET", "")).status).toBe(
+      401,
+    );
+    expect(
+      (
+        await request(
+          "/api/analytics/settings",
+          { trackingEnabled: false },
+          "PATCH",
+          "",
+        )
+      ).status,
+    ).toBe(401);
+    expect((await request("/api/analytics?days=0")).status).toBe(400);
+    expect((await json("/api/analytics?storeId=traffic-b")).status).toBe(
+      "setup",
+    );
+    expect(
+      (
+        await request(
+          "/api/analytics/settings",
+          { storeId: "traffic-b", trackingEnabled: false },
+          "PATCH",
+        )
+      ).status,
+    ).toBe(400);
+    await json(
+      "/api/analytics/settings?storeId=traffic-b",
+      { trackingEnabled: false },
+      "PATCH",
+    );
+    expect((await json("/api/analytics")).settings.trackingEnabled).toBe(false);
+    expect(
+      await db
+        .prepare("SELECT tracking_enabled FROM stores WHERE id='traffic-b'")
+        .first("tracking_enabled"),
+    ).toBe(1);
+    const dropped = await request(
+      "/api/public/jamie-lane/view",
+      { visitor: crypto.randomUUID(), productId: "business-reset" },
+      "POST",
+      "",
+    );
+    expect(await dropped.json()).toEqual({ recorded: false });
+  } finally {
+    await json("/api/analytics/settings", { trackingEnabled: true }, "PATCH");
+    await db.prepare("DELETE FROM stores WHERE id='traffic-b'").run();
+  }
 });

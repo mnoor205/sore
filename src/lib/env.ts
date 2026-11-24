@@ -1,6 +1,20 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+/** The subset of the Workers AI binding the storefront editor uses. */
+export type AiBinding = {
+  run(
+    model: string,
+    input: unknown,
+    options?: { gateway?: { id: string } },
+  ): Promise<unknown>;
+  aiGatewayLogId?: string | null;
+};
 export type AppEnv = {
   DB: D1Database;
+  /** Workers AI binding; storefront AI edits route through AI Gateway. */
+  AI?: AiBinding;
+  AI_GATEWAY_ID?: string;
+  STOREFRONT_AI_DAILY_LIMIT?: string;
+  STOREFRONT_AI_GLOBAL_DAILY_LIMIT?: string;
   FILES: R2Bucket;
   FULFILLMENT: Queue<{ id: string }>;
   APP_MODE: string;
@@ -9,6 +23,11 @@ export type AppEnv = {
   SESSION_SECRET: string;
   OAUTH_BRIDGE_SECRET: string;
   DOWNLOAD_SECRET: string;
+  STOREFRONT_ANALYTICS?: AnalyticsEngineDataset;
+  ANALYTICS_DATASET?: string;
+  ANALYTICS_ACCOUNT_ID?: string;
+  ANALYTICS_READ_TOKEN?: string;
+  ANALYTICS_LIMITER?: RateLimit;
   AUTH_PROVIDER?: string;
   OTP_FROM?: string;
   LOGIN_EMAIL?: CloudflareEnv["LOGIN_EMAIL"];
@@ -22,7 +41,6 @@ export type AppEnv = {
   STRIPE_RECURRING_PRICE_ID?: string;
   STRIPE_LTD_PRODUCT_ID?: string;
   PLATFORM_FEE_BPS?: string;
-  PLATFORM_TAX_ENABLED?: string;
   LTD_PRICE_CENTS?: string;
   LTD_STEP_CENTS?: string;
   LTD_STEP_EVERY?: string;

@@ -3,6 +3,53 @@ import { database } from "./db";
 import { assets, stores } from "./schema";
 import { AppError } from "./security";
 import type { AppEnv } from "./env";
+import { PUBLIC_IMAGE_TYPES } from "./site-images";
+export async function siteImages(env: AppEnv, storeId: string) {
+  const rows = await database(env)
+    .select({ id: assets.id, name: assets.name, type: assets.type })
+    .from(assets)
+    .where(
+      and(
+        eq(assets.storeId, storeId),
+        eq(assets.ready, 1),
+        eq(assets.purpose, "image"),
+      ),
+    );
+  return rows
+    .filter((a) => PUBLIC_IMAGE_TYPES.some((type) => type === a.type))
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      url: `${new URL(env.APP_URL).origin}/media/${a.id}`,
+    }));
+}
+export async function publicImageResponse(env: AppEnv, assetId: string) {
+  const a = await database(env)
+    .select()
+    .from(assets)
+    .where(
+      and(
+        eq(assets.id, assetId),
+        eq(assets.ready, 1),
+        eq(assets.purpose, "image"),
+      ),
+    )
+    .get();
+  if (!a || !PUBLIC_IMAGE_TYPES.some((type) => type === a.type))
+    throw new AppError("Image unavailable", 404);
+  const object = await env.FILES.get(a.key);
+  if (!object) throw new AppError("Image unavailable", 404);
+  return new Response(object.body, {
+    headers: {
+      "Content-Type": a.type,
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'",
+      "Cache-Control": "public, max-age=31536000, immutable",
+      ETag: object.httpEtag,
+    },
+  });
+}
 export async function mediaResponse(
   env: AppEnv,
   assetId: string,

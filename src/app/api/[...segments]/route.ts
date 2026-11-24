@@ -1,3 +1,6 @@
+import { commerceData, customSiteSchema, starterSite } from "@/lib/custom-site";
+import { saveDraft } from "@/lib/storefront-draft";
+import { theme } from "@/lib/storefront-theme";
 import { NextRequest, NextResponse } from "next/server";
 import { and, asc, desc, eq, like, sql } from "drizzle-orm";
 import { z, ZodError } from "zod";
@@ -15,7 +18,6 @@ import {
   outbox,
   entitlements,
   connections,
-  views,
   assets,
   emailAttempts,
 } from "@/lib/schema";
@@ -31,7 +33,6 @@ import {
   AppError,
   checkOrigin,
   csv,
-  hash,
   id,
   now,
   rateLimit,
@@ -47,6 +48,7 @@ import {
 import {
   defaultRange,
   productPerformance,
+  productVisitReport,
   salesSummary,
   storeContext,
 } from "@/lib/reporting";
@@ -60,6 +62,7 @@ import {
   stripeAccountSession,
 } from "@/lib/billing";
 import { verifyWebhook } from "@/lib/webhooks";
+import { claimLifetime } from "@/lib/lifetime-links";
 import {
   loadSetup,
   saveSetup,
@@ -67,9 +70,21 @@ import {
   rehearseDelivery,
 } from "@/lib/onboarding";
 import { forPublicProduct } from "@/lib/presentation";
-import { mediaResponse } from "@/lib/media";
+import { mediaResponse, siteImages } from "@/lib/media";
 import { deliverEmail } from "@/lib/email";
 import { importStanStore, previewStanStore } from "@/lib/stan-import";
+import {
+  discardDraft,
+  draftView,
+  messages as storefrontMessages,
+  publishDraft,
+} from "@/lib/storefront-draft";
+import { STOREFRONT_MODEL, storefrontChat } from "@/lib/storefront-ai";
+import {
+  recordTraffic,
+  setAnalyticsSettings,
+  storefrontAnalytics,
+} from "@/lib/storefront-analytics";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ segments: string[] }> };
 async function route(req: NextRequest, { params }: Context) {
@@ -86,9 +101,34 @@ async function route(req: NextRequest, { params }: Context) {
       path = parts.join("/"),
       query = req.nextUrl.searchParams;
     const body = async () => {
-      if (Number(req.headers.get("content-length") || 0) > 65536)
+      const limit = path === "storefront/site" ? 640 * 1024 : 65536;
+      if (Number(req.headers.get("content-length") || 0) > limit)
         throw new AppError("Request too large", 413);
-      return req.json();
+      const reader = req.body?.getReader();
+      if (!reader) throw new AppError("Missing request body");
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > limit) {
+          await reader.cancel();
+          throw new AppError("Request too large", 413);
+        }
+        chunks.push(value);
+      }
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      try {
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch {
+        throw new AppError("Invalid JSON");
+      }
     };
     const json = (value: unknown, status = 200) =>
       NextResponse.json(value, {
@@ -248,35 +288,33 @@ async function route(req: NextRequest, { params }: Context) {
         );
         return json(await beginCheckout(env, s.id, await body()));
       }
-      if (parts[2] === "view" && req.method === "POST") {
-        await rateLimit(
-          env,
-          `view:${s.id}:${req.headers.get("cf-connecting-ip") || "local"}`,
-          120,
-        );
-        try {
-          const owner = await identity(env);
-          if (owner === s.ownerId)
-            return json({ recorded: false, reason: "creator preview" });
-        } catch {}
-        const data = z
-          .object({ productId: z.string(), visitor: z.string().uuid() })
-          .parse(await body());
-        const p = await getProduct(env, s.id, data.productId);
-        if (p.state !== "published")
-          throw new AppError("Product unavailable", 404);
-        await db
-          .insert(views)
-          .values({
-            id: id(),
-            storeId: s.id,
-            productId: p.id,
-            visitorHash: await hash(`${s.id}:${data.visitor}`),
-            day: new Date().toISOString().slice(0, 10),
-            createdAt: now(),
-          })
-          .onConflictDoNothing();
-        return json({ recorded: true });
+      if (
+        (parts[2] === "view" || parts[2] === "pageview") &&
+        req.method === "POST"
+      ) {
+        const currentOwner = async () => {
+          if (
+            !req.cookies.has(SESSION_COOKIE) &&
+            !req.cookies.has("coachlane_dev")
+          )
+            return null;
+          try {
+            return await identity(env);
+          } catch (error) {
+            if (error instanceof AppError && error.status === 401) return null;
+            throw error;
+          }
+        };
+        return json({
+          recorded: await recordTraffic(
+            env,
+            s,
+            parts[2],
+            req.headers,
+            currentOwner,
+            body,
+          ),
+        });
       }
       if (parts[2] === "link" && req.method === "GET") {
         const p = await getProduct(env, s.id, query.get("product") || "");
@@ -310,7 +348,7 @@ async function route(req: NextRequest, { params }: Context) {
     }
     if (path === "store" && req.method === "POST") {
       const ownerId = await identity(env),
-        data = storeInput.parse(await body());
+        { theme: storeTheme, ...data } = storeInput.parse(await body());
       if (
         await db.select().from(stores).where(eq(stores.ownerId, ownerId)).get()
       )
@@ -326,6 +364,7 @@ async function route(req: NextRequest, { params }: Context) {
         ownerId,
         publicationState: "draft",
         socials: JSON.stringify(data.socials),
+        themeJson: JSON.stringify(storeTheme || {}),
         createdAt: now(),
       });
       return json({ url: "/dashboard" });
@@ -381,6 +420,12 @@ async function route(req: NextRequest, { params }: Context) {
         ).results,
       });
     }
+    if (path === "analytics" && req.method === "GET") {
+      const days = Number(query.get("days") ?? 30);
+      return json(await storefrontAnalytics(env, s, days));
+    }
+    if (path === "analytics/settings" && req.method === "PATCH")
+      return json(await setAnalyticsSettings(env, s, await body()));
     if (path === "workspace") {
       const from = query.get("from"),
         to = query.get("to");
@@ -388,22 +433,30 @@ async function route(req: NextRequest, { params }: Context) {
         from && to
           ? { from, to }
           : defaultRange(Number(query.get("days") || 30));
-      const [items, summary, performance, entitlement] = await Promise.all([
-        catalog(env, s.id),
-        salesSummary(env, s.id, range),
-        productPerformance(env, s.id, range),
-        db
-          .select()
-          .from(entitlements)
-          .where(eq(entitlements.storeId, s.id))
-          .get(),
-      ]);
+      // A lifetime bought through the payment link before this store existed
+      // (or while the webhook was in flight) is granted on the next load.
+      await claimLifetime(env, s.id);
+      const [items, summary, performance, visits, entitlement] =
+        await Promise.all([
+          catalog(env, s.id),
+          salesSummary(env, s.id, range),
+          productPerformance(env, s.id, range),
+          query.get("visits") === "1"
+            ? productVisitReport(env, s.id, range)
+            : null,
+          db
+            .select()
+            .from(entitlements)
+            .where(eq(entitlements.storeId, s.id))
+            .get(),
+        ]);
       const quota = await storeLimits(env, s.id);
       return json({
         store: s,
         products: items,
         summary,
         performance,
+        visits,
         entitlement: entitlement
           ? {
               kind: entitlement.kind,
@@ -433,7 +486,7 @@ async function route(req: NextRequest, { params }: Context) {
       return json({ recorded: true });
     }
     if (path === "store" && req.method === "PATCH") {
-      const data = storeInput.parse(await body());
+      const { theme: storeTheme, ...data } = storeInput.parse(await body());
       if (data.currency !== s.currency) {
         const existing = await db
           .select({ id: orders.id })
@@ -454,9 +507,68 @@ async function route(req: NextRequest, { params }: Context) {
         throw new AppError("This address is already taken");
       await db
         .update(stores)
-        .set({ ...data, socials: JSON.stringify(data.socials) })
+        .set({
+          ...data,
+          socials: JSON.stringify(data.socials),
+          ...(storeTheme ? { themeJson: JSON.stringify(storeTheme) } : {}),
+        })
         .where(eq(stores.id, s.id));
       return json({ saved: true });
+    }
+    if (path === "storefront/ai" && req.method === "GET") {
+      const view = await draftView(env, s);
+      return json({
+        draft: view.draft,
+        customSite: view.effective.customSite ?? null,
+        publishedSite: view.live.customSite ?? null,
+        starter: starterSite({ ...s, theme: theme(s.themeJson) }),
+        commerce: commerceData(s, await catalog(env, s.id), env.APP_URL),
+        images: await siteImages(env, s.id),
+        messages: await storefrontMessages(env, s.id),
+        model: STOREFRONT_MODEL,
+        connected: !!env.AI,
+      });
+    }
+    if (path === "storefront/site" && req.method === "POST") {
+      const data = z
+        .object({
+          site: customSiteSchema.nullable(),
+          expectedVersion: z.number().int().positive().nullable(),
+        })
+        .strict()
+        .parse(await body());
+      const view = await draftView(env, s);
+      const version = await saveDraft(
+        env,
+        s.id,
+        view.live,
+        // Keep any other unpublished draft changes; only the site files change.
+        { ...view.effective, customSite: data.site },
+        data.expectedVersion,
+      );
+      return json({ saved: true, draftVersion: version });
+    }
+    if (path === "storefront/ai/chat" && req.method === "POST") {
+      await rateLimit(env, `storefront-ai:${s.id}`, 8);
+      const data = z
+        .object({
+          message: z.string().trim().min(1).max(2000),
+          expectedVersion: z.number().int().positive().nullable(),
+        })
+        .parse(await body());
+      return json(await storefrontChat(env, s, data));
+    }
+    if (path === "storefront/ai/publish" && req.method === "POST") {
+      const data = z
+        .object({ expectedVersion: z.number().int().positive() })
+        .parse(await body());
+      return json(await publishDraft(env, s, data.expectedVersion));
+    }
+    if (path === "storefront/ai/discard" && req.method === "POST") {
+      const data = z
+        .object({ expectedVersion: z.number().int().positive() })
+        .parse(await body());
+      return json(await discardDraft(env, s.id, data.expectedVersion));
     }
     if (parts[0] === "products") {
       if (req.method === "POST" || req.method === "PATCH")
@@ -702,8 +814,7 @@ async function route(req: NextRequest, { params }: Context) {
       return new Response(JSON.stringify(report, null, 2), {
         headers: {
           "Content-Type": "application/json",
-          "Content-Disposition":
-            'attachment; filename="sore-ai-context.json"',
+          "Content-Disposition": 'attachment; filename="sore-ai-context.json"',
           "Cache-Control": "no-store",
         },
       });

@@ -9,12 +9,15 @@ export default function AuthScreen({
   accessReady = false,
   loginUrl = "",
   brandedEmail = false,
+  lifetimePaid = false,
 }: {
   signup?: boolean;
   developmentMode?: boolean;
   accessReady?: boolean;
   loginUrl?: string;
   brandedEmail?: boolean;
+  /** Back from a founding lifetime payment link checkout. */
+  lifetimePaid?: boolean;
 }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -119,7 +122,9 @@ export default function AuthScreen({
             {developmentMode
               ? "Explore the creator experience or start with a blank storefront."
               : accessReady
-                ? "Get a one-time code in your inbox. No password needed."
+                ? lifetimePaid
+                  ? "Payment received. Use the same email you paid with and your founding lifetime access is added automatically."
+                  : "Get a one-time code in your inbox. No password needed."
                 : "This storefront platform is online. Creator access will be available once authentication is connected."}
           </p>
           <div className="notice">

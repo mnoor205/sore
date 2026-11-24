@@ -1,6 +1,6 @@
 "use client";
 import { Wordmark } from "./brand";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -13,8 +13,15 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import { trafficSource } from "@/lib/storefront-traffic";
 import ProductSections from "./product-sections";
 import { api, Modal, money, Badge } from "./shared";
+import {
+  DEFAULT_FOOTER,
+  DEFAULT_SECTION_LABEL,
+  themeClasses,
+  type StoreTheme,
+} from "@/lib/storefront-theme";
 export type PublicStore = {
   name: string;
   slug: string;
@@ -26,6 +33,7 @@ export type PublicStore = {
   socials: Record<string, string>;
   demo: boolean;
   stylePreset?: string;
+  theme?: StoreTheme;
 };
 export type PublicProduct = {
   id: string;
@@ -44,27 +52,74 @@ export default function Storefront({
   store: s,
   products,
   selectedId,
+  trackingEnabled = false,
   preview = false,
   privatePreview = false,
+  previewSource,
 }: {
   store: PublicStore;
   products: PublicProduct[];
   selectedId?: string;
+  trackingEnabled?: boolean;
   preview?: boolean;
   privatePreview?: boolean;
+  previewSource?: "live" | "ai" | "manual";
 }) {
+  const t = s.theme,
+    previewQuery =
+      previewSource && previewSource !== "live"
+        ? `source=${previewSource}`
+        : "",
+    previewHref = (productId?: string) => {
+      const q = [productId && `product=${productId}`, previewQuery]
+        .filter(Boolean)
+        .join("&");
+      return "/dashboard/preview" + (q ? "?" + q : "");
+    };
   const selected = products.find((p) => p.id === selectedId);
   const [choosing, setChoosing] = useState<PublicProduct | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const lastPage = useRef("");
   useEffect(() => {
-    if (preview) return;
+    if (
+      preview ||
+      privatePreview ||
+      !trackingEnabled ||
+      !crypto.randomUUID ||
+      navigator.doNotTrack === "1" ||
+      (navigator as Navigator & { globalPrivacyControl?: boolean })
+        .globalPrivacyControl
+    )
+      return;
+    const day = new Date().toISOString().slice(0, 10);
+    const key = "sore_visit_" + s.slug;
+    let visitor = crypto.randomUUID() as string;
     try {
-      let visitor = localStorage.getItem("coachlane_visitor");
-      if (!visitor) {
-        visitor = crypto.randomUUID();
-        localStorage.setItem("coachlane_visitor", visitor);
-      }
+      const saved = localStorage.getItem(key)?.split("|");
+      if (saved?.[0] === day && /^[a-f0-9-]{36}$/.test(saved[1] || ""))
+        visitor = saved[1];
+      else localStorage.setItem(key, day + "|" + visitor);
+      localStorage.removeItem("coachlane_visitor");
+    } catch {
+      /* With storage blocked, this visit lasts one page. */
+    }
+    const page = JSON.stringify([s.slug, selectedId, day]);
+    if (lastPage.current !== page) {
+      lastPage.current = page;
+      const entry = performance.getEntriesByType("navigation")[0];
+      const internal =
+        entry && new URL(entry.name).pathname !== location.pathname;
+      const source = internal
+        ? "Storefront"
+        : trafficSource(document.referrer, location.origin);
+      void api(`public/${s.slug}/pageview`, {
+        productId: selectedId,
+        visitor,
+        source,
+      }).catch(() => {});
+    }
+    try {
       const observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries)
@@ -83,7 +138,7 @@ export default function Storefront({
         .forEach((el) => observer.observe(el));
       return () => observer.disconnect();
     } catch {}
-  }, [preview, products, s.slug]);
+  }, [preview, privatePreview, trackingEnabled, products, s.slug, selectedId]);
   async function checkout(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
@@ -108,7 +163,8 @@ export default function Storefront({
       className={
         "public-page preset-" +
         (s.stylePreset || "studio") +
-        (selected ? " product-detail-page" : "")
+        (selected ? " product-detail-page" : "") +
+        (t ? " " + themeClasses(t) : "")
       }
       style={{ "--store-accent": s.accent } as React.CSSProperties}
     >
@@ -121,6 +177,11 @@ export default function Storefront({
         <div className="preview-strip">
           <EyeIcon />
           Private creator preview · not a live checkout · views excluded
+        </div>
+      )}
+      {t?.announcement && (
+        <div className="store-announcement" role="note">
+          {t.announcement}
         </div>
       )}
       <main className="store-container">
@@ -167,13 +228,13 @@ export default function Storefront({
           </div>
         </header>
         <div className="public-section-label">
-          <span>MADE WITH YOU IN MIND</span>
+          <span>{t ? t.sectionLabel : DEFAULT_SECTION_LABEL}</span>
           <span className="little-spark">✳</span>
         </div>
         {selected && (
           <a
             className="back-to-store"
-            href={privatePreview ? "/dashboard/preview" : `/${s.slug}`}
+            href={privatePreview ? previewHref() : `/${s.slug}`}
           >
             All resources from {s.name}
           </a>
@@ -208,7 +269,7 @@ export default function Storefront({
                     <Link
                       href={
                         privatePreview
-                          ? `/dashboard/preview?product=${p.id}`
+                          ? previewHref(p.id)
                           : `/${s.slug}/p/${p.id}${preview ? "?preview=1" : ""}`
                       }
                       className="public-cover"
@@ -287,7 +348,7 @@ export default function Storefront({
           </p>
         )}
         <footer className="store-footer">
-          <p>Resources for your independent mind.</p>
+          <p>{t ? t.footerText : DEFAULT_FOOTER}</p>
           <div>
             <Link href={`/privacy?store=${s.slug}`}>Privacy</Link>
             <span>·</span>

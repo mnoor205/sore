@@ -6,6 +6,7 @@ import { limits, type AppEnv } from "./env";
 import { stripeClient } from "./payments";
 import { AppError, id, now } from "./security";
 import { STRIPE_COUNTRIES } from "./stripe-countries";
+import { lifetimeCheckoutUrl, lifetimeLadder } from "./lifetime-links";
 export async function connectPayments(
   env: AppEnv,
   store: typeof stores.$inferSelect,
@@ -94,15 +95,13 @@ export async function billingCheckout(
     throw new AppError(
       "Manage or cancel your existing subscription in the billing portal first",
     );
-  const product = env.STRIPE_LTD_PRODUCT_ID;
+  // Founding lifetime access is sold through the current price tier's Stripe
+  // Payment Link; the store id rides along so the webhook grants this store.
+  if (kind === "lifetime")
+    return { url: await lifetimeCheckoutUrl(env, store.id) };
   const price = env.STRIPE_RECURRING_PRICE_ID;
-  if (kind === "lifetime" ? !product : !price)
-    throw new AppError(
-      kind === "lifetime"
-        ? "Lifetime offer has not been activated. Configure its Stripe product first."
-        : "Recurring pricing has not been configured yet.",
-      503,
-    );
+  if (!price)
+    throw new AppError("Recurring pricing has not been configured yet.", 503);
   const stripe = stripeClient(env);
   if (!entitlement?.customerId) {
     const customer = await stripe.customers.create(
@@ -133,14 +132,8 @@ export async function billingCheckout(
       .get();
   }
   const reservation = id();
-  const ladder = ladderConfig(env);
-  // The founding price is locked per reservation from completed founding purchases
-  // (the same count the homepage shows), so checkout never differs from the quote.
-  // The cap separately counts active grants plus open reservations.
-  const reserved = await env.DB.prepare(
-    `INSERT INTO billing_sessions (id,store_id,kind,status,expires_at,created_at,grant_json,amount)
-     SELECT ?,?,?,'pending',?,?,?,CASE WHEN ?='lifetime' THEN CAST(? AS INTEGER) + CAST(? AS INTEGER) * ((${PAID_SQL}) / CAST(? AS INTEGER)) END
-     WHERE ?<>'lifetime' OR (${TAKEN_SQL}) < ?`,
+  await env.DB.prepare(
+    "INSERT INTO billing_sessions (id,store_id,kind,status,expires_at,created_at,grant_json) VALUES (?,?,?,'pending',?,?,?)",
   )
     .bind(
       reservation,
@@ -149,65 +142,25 @@ export async function billingCheckout(
       now() + 1800000,
       now(),
       JSON.stringify(limits(env)),
-      kind,
-      ladder.base,
-      ladder.step,
-      ladder.every,
-      kind,
-      ladder.limit,
     )
     .run();
-  if (!reserved.meta.changes)
-    throw new AppError("The founding lifetime offer is fully reserved");
   try {
-    const amount =
-      kind === "lifetime"
-        ? (
-            await env.DB.prepare(
-              "SELECT amount FROM billing_sessions WHERE id=?",
-            )
-              .bind(reservation)
-              .first<{ amount: number }>()
-          )?.amount
-        : null;
-    if (kind === "lifetime" && !Number.isInteger(amount))
-      throw new AppError("Founding price could not be reserved", 500);
     const session = await stripe.checkout.sessions.create(
       {
         integration_identifier:
           "sore_billing_" + id().replace(/-/g, "").slice(0, 8),
-        mode: kind === "lifetime" ? "payment" : "subscription",
+        mode: "subscription",
         customer: entitlement!.customerId!,
-        line_items: [
-          kind === "lifetime"
-            ? {
-                price_data: {
-                  currency: "usd",
-                  product: product!,
-                  unit_amount: amount!,
-                },
-                quantity: 1,
-              }
-            : { price: price!, quantity: 1 },
-        ],
+        line_items: [{ price, quantity: 1 }],
         metadata: { store_id: store.id, kind, stream: "platform", reservation },
-        ...(kind === "subscription"
-          ? { subscription_data: { metadata: { store_id: store.id } } }
-          : {
-              invoice_creation: { enabled: true },
-              payment_intent_data: {
-                metadata: { store_id: store.id, kind: "lifetime" },
-              },
-            }),
+        subscription_data: { metadata: { store_id: store.id } },
         expires_at: Math.floor(now() / 1000) + 1800,
         success_url: `${env.APP_URL}/dashboard/billing?completed=1`,
         cancel_url: `${env.APP_URL}/dashboard/billing`,
-        ...(env.PLATFORM_TAX_ENABLED === "true"
-          ? {
-              automatic_tax: { enabled: true },
-              customer_update: { address: "auto" as const },
-            }
-          : {}),
+        // Stripe Tax adds sales tax wherever the account has a registration.
+        automatic_tax: { enabled: true },
+        billing_address_collection: "required",
+        customer_update: { address: "auto" },
       },
       { idempotencyKey: `billing-${reservation}` },
     );
@@ -226,44 +179,28 @@ export async function billingCheckout(
     throw error;
   }
 }
-const TAKEN_SQL =
-  "(SELECT COUNT(*) FROM entitlements WHERE kind='lifetime' AND status='active')+(SELECT COUNT(*) FROM billing_sessions WHERE kind='lifetime' AND status='pending' AND expires_at>" +
-  "CAST(strftime('%s','now') AS INTEGER)*1000)";
-// Completed founding purchases on real stores. Refunds don't rewind the ladder.
-const PAID_SQL =
-  "SELECT COUNT(DISTINCT b.session_id) FROM billing_sessions b JOIN stores s ON s.id=b.store_id WHERE b.kind='lifetime' AND b.status='paid' AND b.session_id IS NOT NULL AND s.demo=0";
-export function ladderConfig(env: AppEnv) {
-  const positive = (value: string | undefined, fallback: number) => {
-    const n = Number(value);
-    return Number.isInteger(n) && n > 0 ? n : fallback;
-  };
-  return {
-    base: positive(env.LTD_PRICE_CENTS, 9900),
-    step: Number.isInteger(Number(env.LTD_STEP_CENTS))
-      ? Math.max(0, Number(env.LTD_STEP_CENTS))
-      : 1000,
-    every: positive(env.LTD_STEP_EVERY, 5),
-    limit: positive(env.LTD_LIMIT, 100),
-  };
-}
 /** Current founding offer: price for the next buyer and how many remain at it. */
 export async function foundingOffer(env: AppEnv) {
-  const ladder = ladderConfig(env);
-  const row = await env.DB.prepare(
-    `SELECT (${PAID_SQL}) AS paid, ${TAKEN_SQL} AS taken`,
-  ).first<{ paid: number; taken: number }>();
-  const paid = row?.paid ?? 0,
-    taken = row?.taken ?? 0;
-  const tier = Math.floor(paid / ladder.every);
+  let ladder;
+  try {
+    ladder = await lifetimeLadder(env);
+  } catch (error) {
+    // Stripe being unreachable must not take the whole workspace down.
+    console.error("Founding offer unavailable", error);
+    return {
+      price: 0,
+      nextPrice: 0,
+      leftAtPrice: 0,
+      remaining: 0,
+      available: false,
+    };
+  }
   return {
-    price: ladder.base + ladder.step * tier,
-    nextPrice: ladder.base + ladder.step * (tier + 1),
-    leftAtPrice: Math.min(
-      ladder.every - (paid % ladder.every),
-      Math.max(0, ladder.limit - taken),
-    ),
-    remaining: Math.max(0, ladder.limit - taken),
-    available: !!env.STRIPE_LTD_PRODUCT_ID && taken < ladder.limit,
+    price: ladder.price ?? 0,
+    nextPrice: ladder.nextPrice ?? ladder.price ?? 0,
+    leftAtPrice: ladder.leftAtPrice,
+    remaining: ladder.remaining,
+    available: ladder.available,
   };
 }
 export async function syncSubscription(env: AppEnv, subscriptionId: string) {

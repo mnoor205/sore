@@ -1,7 +1,17 @@
+import {
+  checkoutMessageUrl,
+  linkMessageUrl,
+  commerceData,
+  customSiteDocument,
+  customSiteSchema,
+  CUSTOM_SITE_CSP,
+  CUSTOM_SITE_SANDBOX,
+  customSiteCsp,
+} from "../src/lib/custom-site";
 import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { build } from "esbuild";
-import { readFileSync, mkdirSync } from "node:fs";
+import { readdirSync, readFileSync, mkdirSync } from "node:fs";
 import { createHmac, createHash } from "node:crypto";
 import {
   accessIssuer,
@@ -13,6 +23,8 @@ let mf: Miniflare;
 let stripeSession: Record<string, unknown> = {};
 let stripeResponses: Record<string, unknown> = {};
 let stripeRequests: { path: string; body: string }[] = [];
+let analyticsQueries: string[] = [];
+let analyticsFailure = false;
 let providerCalls = 0;
 let providerFail = false;
 const props = {
@@ -196,6 +208,24 @@ beforeAll(async () => {
         EMAIL_FROM: "Test <test@example.test>",
       },
       outboundService: async (req) => {
+        if (new URL(req.url).pathname.endsWith("/analytics_engine/sql")) {
+          const sql = await req.text();
+          analyticsQueries.push(sql);
+          if (analyticsFailure)
+            return new Response("unauthorized", { status: 403 });
+          return Response.json({
+            data: sql.includes("formatDateTime")
+              ? [
+                  {
+                    label: new Date().toISOString().slice(0, 10),
+                    visitors: "2",
+                    views: "8",
+                    productViews: "3",
+                  },
+                ]
+              : [],
+          });
+        }
         if (req.url === accessIssuer + "/cdn-cgi/access/certs")
           return Response.json(accessJwks);
         if (new URL(req.url).hostname === "api.stripe.com") {
@@ -235,22 +265,11 @@ beforeAll(async () => {
     }),
   );
   await call("init", {
-    sql:
-      readFileSync("migrations/0001_initial.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0002_delivery_refunds_grants.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0003_setup_progress.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0004_platform_refunds.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0005_guided_setup_and_drafts.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0006_cloudflare_email_auth.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0008_import_sources.sql", "utf8") +
-      "\n" +
-      readFileSync("migrations/0009_founding_price_ladder.sql", "utf8"),
+    sql: readdirSync("migrations")
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .map((name) => readFileSync("migrations/" + name, "utf8"))
+      .join("\n"),
   });
 }, 60000);
 beforeEach(async () => {
@@ -260,7 +279,7 @@ beforeEach(async () => {
   stripeResponses = {};
   stripeRequests = [];
   await call("init", {
-    sql: `DELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM import_sources;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
+    sql: `DELETE FROM storefront_ai_messages;\nDELETE FROM storefront_drafts;\nDELETE FROM creator_sessions;\nDELETE FROM creator_login_states;\nDELETE FROM draft_changes;\nDELETE FROM draft_requests;\nDELETE FROM onboarding_progress;\nDELETE FROM email_attempts;\nDELETE FROM outbox;\nDELETE FROM refunds;\nDELETE FROM activities;\nDELETE FROM orders;\nDELETE FROM contacts;\nDELETE FROM discounts;\nDELETE FROM views;\nDELETE FROM products;\nDELETE FROM import_sources;\nDELETE FROM assets;\nDELETE FROM entitlements;\nDELETE FROM connections;\nDELETE FROM billing_sessions;\nDELETE FROM billing_refunds;\nDELETE FROM lifetime_links;\nDELETE FROM lifetime_purchases;\nDELETE FROM webhook_events;\nDELETE FROM stores;\nDELETE FROM rates;\nINSERT INTO stores(id,owner_id,slug,name,stripe_account,demo,created_at) VALUES ('a','owner_a','store-a','Store A','acct_a',1,1),('b','owner_b','store-b','Store B','acct_b',1,1);\nINSERT INTO products(id,store_id,title,description,price,delivery_url,state,created_at,updated_at) VALUES ('paid','a','Paid Resource','Untrusted text',2000,'https://private.example.test/a','published',1,1),('free','a','Free Guide','A guide',0,'https://private.example.test/free','published',1,1),('other','b','Other Store','Other',3000,'https://private.example.test/other','published',1,1);\nINSERT INTO connections(id,store_id,owner_id,client_id,name,created_at) VALUES ('connection_a','a','owner_a','client_a','Test Client',1);\nINSERT INTO assets(id,store_id,key,name,type,size,ready,created_at) VALUES ('asset_a','a','a/file.pdf','file.pdf','application/pdf',12,1,1);`,
   });
 });
 afterAll(async () => {
@@ -644,6 +663,51 @@ describe("MCP authorization and reporting", () => {
       (await call("connection", { props: { ...props, storeId: "b" } })).status,
     ).toBe(401);
   });
+  it.each([7, 30, 90, 365])(
+    "reconciles %i days of product views at UTC boundaries",
+    async (length) => {
+      const end = Date.UTC(2026, 10, 21);
+      const day = 86400000;
+      const start = end - length * day;
+      for (const [index, [product, time]] of (
+        [
+          ["free", start - length * day],
+          ["paid", start - 1],
+          ["paid", start],
+          ["free", start],
+          ["paid", end - 1],
+          ["free", end],
+          ["other", start],
+        ] as const
+      ).entries()) {
+        await query("INSERT INTO views VALUES (?, ?, ?, ?, ?, ?)", [
+          String(index),
+          product === "other" ? "b" : "a",
+          product,
+          "visitor",
+          new Date(time).toISOString().slice(0, 10),
+          time,
+        ]);
+      }
+      const r = await call("visits", {
+        storeId: "a",
+        range: {
+          from: new Date(start).toISOString(),
+          to: new Date(end).toISOString(),
+        },
+      });
+      expect(r.status).toBe(200);
+      expect(r.data.days).toHaveLength(length);
+      expect(r.data.days[0].count).toBe(2);
+      expect(r.data.days[1].count).toBe(0);
+      expect(r.data.days.at(-1).count).toBe(1);
+      expect(r.data.total).toBe(3);
+      expect(r.data.previous).toBe(2);
+      expect(r.data.products.map((p: { count: number }) => p.count)).toEqual([
+        2, 1,
+      ]);
+    },
+  );
   it("MCP totals match the dashboard reporting service", async () => {
     const o = await checkout();
     await confirm(o);
@@ -1091,87 +1155,164 @@ it("subscription webhooks activate, renew, preserve the failure grace deadline a
       .status,
   ).toBe("inactive");
 });
-async function seedLifetimeBuyers(count: number) {
-  for (let i = 0; i < count; i++) {
-    await query(
-      "INSERT INTO stores(id,owner_id,slug,name,created_at) VALUES (?,?,?,?,1)",
-      [`buyer${i}`, `owner_buyer${i}`, `buyer-${i}`, `Buyer ${i}`],
-    );
-    await query(
-      "INSERT INTO entitlements(store_id,kind,status,updated_at) VALUES (?,'lifetime','active',1)",
-      [`buyer${i}`],
-    );
-    await query(
-      "INSERT INTO billing_sessions(id,store_id,kind,status,session_id,expires_at,created_at) VALUES (?,?,'lifetime','paid',?,1,1)",
-      [`paid${i}`, `buyer${i}`, `cs_paid_${i}`],
-    );
-  }
-}
-function lifetimeCheckoutAmounts() {
-  return stripeRequests
-    .filter((r) => r.path === "/v1/checkout/sessions")
-    .map((r) =>
-      Number(
-        new URLSearchParams(r.body).get(
-          "line_items[0][price_data][unit_amount]",
-        ),
-      ),
-    );
-}
-it("founding-offer slots are reserved atomically across stores", async () => {
-  await seedLifetimeBuyers(6);
-  await query(
-    "INSERT INTO entitlements(store_id,customer_id,updated_at) VALUES ('a','cus_a',1),('b','cus_b',1)",
+function stripeBody(path: string) {
+  return new URLSearchParams(
+    stripeRequests.filter((r) => r.path === path).at(-1)!.body,
   );
-  stripeResponses["/v1/checkout/sessions"] = {
-    id: "cs_offer",
-    url: "https://checkout.stripe.com/test",
+}
+function tierLink(id: string, count: number, limit = 5) {
+  stripeResponses[`/v1/payment_links/${id}`] = {
+    id,
+    active: count < limit,
+    url: `https://buy.stripe.com/${id}`,
+    restrictions: { completed_sessions: { count, limit } },
   };
-  const results = await Promise.all([
-    call("billing", { storeId: "a", kind: "lifetime" }),
-    call("billing", { storeId: "b", kind: "lifetime" }),
-  ]);
-  expect(results.map((r) => r.status).sort()).toEqual([200, 400]);
-  expect(
-    (await query("SELECT * FROM billing_sessions WHERE status='pending'"))
-      .length,
-  ).toBe(1);
-});
+}
 it("founding price starts at $99 and rises $10 every five buys", async () => {
-  await query(
-    "INSERT INTO entitlements(store_id,customer_id,updated_at) VALUES ('a','cus_a',1),('b','cus_b',1)",
+  // Tier 0: the app creates a $99 price and a payment link capped at 5 sales.
+  stripeResponses["/v1/prices"] = { id: "price_t0" };
+  stripeResponses["/v1/payment_links"] = {
+    id: "plink_t0",
+    url: "https://buy.stripe.com/plink_t0",
+  };
+  tierLink("plink_t0", 2);
+  let r = await call("billing", { storeId: "a", kind: "lifetime" });
+  expect(r.status).toBe(200);
+  expect(r.data.url).toBe(
+    "https://buy.stripe.com/plink_t0?client_reference_id=a",
   );
-  stripeResponses["/v1/checkout/sessions"] = {
-    id: "cs_offer",
-    url: "https://checkout.stripe.com/test",
+  expect(stripeBody("/v1/prices").get("unit_amount")).toBe("9900");
+  expect(stripeBody("/v1/prices").get("product")).toBe("prod_ltd");
+  expect(stripeBody("/v1/prices").get("currency")).toBe("usd");
+  let link = stripeBody("/v1/payment_links");
+  expect(link.get("restrictions[completed_sessions][limit]")).toBe("5");
+  expect(link.get("line_items[0][price]")).toBe("price_t0");
+  expect(link.get("metadata[sore_offer]")).toBe("founding_lifetime");
+  expect(link.get("automatic_tax[enabled]")).toBe("true");
+  expect(link.get("billing_address_collection")).toBe("required");
+  // Asking again reuses the stored tier link instead of creating another.
+  r = await call("billing", { storeId: "b", kind: "lifetime" });
+  expect(r.data.url).toContain("plink_t0");
+  expect(
+    stripeRequests.filter((x) => x.path === "/v1/payment_links").length,
+  ).toBe(1);
+
+  // Stripe retires the link after its fifth sale; the next buyer gets $109.
+  tierLink("plink_t0", 5);
+  stripeResponses["/v1/prices"] = { id: "price_t1" };
+  stripeResponses["/v1/payment_links"] = {
+    id: "plink_t1",
+    url: "https://buy.stripe.com/plink_t1",
+  };
+  tierLink("plink_t1", 0);
+  r = await call("billing", { storeId: "b", kind: "lifetime" });
+  expect(r.data.url).toBe(
+    "https://buy.stripe.com/plink_t1?client_reference_id=b",
+  );
+  expect(stripeBody("/v1/prices").get("unit_amount")).toBe("10900");
+  expect(
+    await query("SELECT tier,amount,sold_out FROM lifetime_links ORDER BY tier"),
+  ).toEqual([
+    { tier: 0, amount: 9900, sold_out: 1 },
+    { tier: 1, amount: 10900, sold_out: 0 },
+  ]);
+});
+it("a paused tier link stops sales instead of skipping to a higher price", async () => {
+  await query(
+    "INSERT INTO lifetime_links(product_id,tier,amount,size,price_id,link_id,url,created_at) VALUES ('prod_ltd',0,9900,5,'price_t0','plink_t0','https://buy.stripe.com/plink_t0',1)",
+  );
+  stripeResponses["/v1/payment_links/plink_t0"] = {
+    id: "plink_t0",
+    active: false,
+    url: "https://buy.stripe.com/plink_t0",
+    restrictions: { completed_sessions: { count: 1, limit: 5 } },
   };
   expect(
     (await call("billing", { storeId: "a", kind: "lifetime" })).status,
-  ).toBe(200);
-  await seedLifetimeBuyers(5);
-  stripeResponses["/v1/checkout/sessions"] = {
-    id: "cs_offer_2",
-    url: "https://checkout.stripe.com/test",
+  ).not.toBe(200);
+});
+function linkSession(extra: Record<string, unknown> = {}) {
+  return {
+    id: "cs_pl",
+    payment_status: "paid",
+    payment_link: "plink_t0",
+    customer: "cus_pl",
+    payment_intent: "pi_pl",
+    currency: "usd",
+    amount_subtotal: 9900,
+    customer_details: { email: "Buyer@Example.com" },
+    client_reference_id: null,
+    metadata: { sore_offer: "founding_lifetime", tier: "0" },
+    ...extra,
   };
-  // Five completed founding purchases move the next buyer to $109.
-  expect(
-    (await call("billing", { storeId: "b", kind: "lifetime" })).status,
-  ).toBe(200);
-  expect(lifetimeCheckoutAmounts()).toEqual([9900, 10900]);
-  const body = new URLSearchParams(
-    stripeRequests.find((r) => r.path === "/v1/checkout/sessions")!.body,
+}
+async function seedTierLink() {
+  await query(
+    "INSERT INTO lifetime_links(product_id,tier,amount,size,price_id,link_id,url,created_at) VALUES ('prod_ltd',0,9900,5,'price_t0','plink_t0','https://buy.stripe.com/plink_t0',1)",
   );
-  expect(body.get("line_items[0][price_data][product]")).toBe("prod_ltd");
-  expect(body.get("line_items[0][price_data][currency]")).toBe("usd");
+}
+it("a payment link purchase is granted to the buyer's store by checkout email, even before the store exists", async () => {
+  await seedTierLink();
+  stripeSession = linkSession();
   expect(
-    (
-      await query(
-        "SELECT amount FROM billing_sessions WHERE kind='lifetime' AND status='pending'",
-      )
-    )
-      .map((r: { amount: number }) => r.amount)
-      .sort(),
-  ).toEqual([10900, 9900].sort());
+    (await platformEvent("evt_pl", "checkout.session.completed", { id: "cs_pl" }))
+      .status,
+  ).toBe(200);
+  const owner =
+    "cf_" +
+    createHash("sha256")
+      .update(accessIssuer + "\nbuyer@example.com")
+      .digest("hex");
+  const [purchase] = await query("SELECT * FROM lifetime_purchases");
+  expect(purchase.owner_id).toBe(owner);
+  expect(purchase.store_id).toBeNull();
+  // The buyer signs up afterwards with the same email and creates a store.
+  await query(
+    "INSERT INTO stores(id,owner_id,slug,name,created_at) VALUES ('ltd','" +
+      owner +
+      "','ltd-store','LTD',1)",
+  );
+  expect((await call("claim-lifetime", { storeId: "ltd" })).data.claimed).toBe(
+    true,
+  );
+  const e = (await query("SELECT * FROM entitlements WHERE store_id='ltd'"))[0];
+  expect(e.kind).toBe("lifetime");
+  expect(e.status).toBe("active");
+  expect(e.payment_intent).toBe("pi_pl");
+  // Another store can't claim the same purchase.
+  expect((await call("claim-lifetime", { storeId: "b" })).data.claimed).toBe(
+    false,
+  );
+});
+it("a signed-in buyer's payment link purchase activates their store immediately and refunds revoke it", async () => {
+  await seedTierLink();
+  stripeSession = linkSession({ client_reference_id: "a" });
+  await platformEvent("evt_pl", "checkout.session.completed", { id: "cs_pl" });
+  expect(
+    (await query("SELECT kind,status FROM entitlements WHERE store_id='a'"))[0],
+  ).toEqual({ kind: "lifetime", status: "active" });
+  stripeResponses["/v1/charges/ch_pl"] = {
+    id: "ch_pl",
+    refunded: true,
+    payment_intent: "pi_pl",
+  };
+  await platformEvent("evt_refund", "charge.refunded", { id: "ch_pl" });
+  expect(
+    (await query("SELECT status FROM entitlements WHERE store_id='a'"))[0]
+      .status,
+  ).toBe("refunded");
+  expect((await call("claim-lifetime", { storeId: "a" })).data.claimed).toBe(
+    false,
+  );
+});
+it("a payment link checkout that doesn't match its tier price grants nothing", async () => {
+  await seedTierLink();
+  stripeSession = linkSession({ client_reference_id: "a", amount_subtotal: 100 });
+  expect(
+    (await platformEvent("evt_pl", "checkout.session.completed", { id: "cs_pl" }))
+      .status,
+  ).not.toBe(200);
+  expect(await query("SELECT * FROM lifetime_purchases")).toEqual([]);
 });
 it("lifetime activation rejects a payment that doesn't match the reserved tier", async () => {
   await query(
@@ -1876,5 +2017,699 @@ describe("Stan storefront import", () => {
         [s.store.id],
       ),
     ).toHaveLength(2);
+  });
+});
+
+describe("Storefront AI editor", () => {
+  const toolReply = (input: unknown, text = "Updated your draft.") => ({
+    id: "msg_fixture",
+    type: "message",
+    role: "assistant",
+    model: "claude-haiku-5-5",
+    stop_reason: "tool_use",
+    content: [
+      { type: "text", text },
+      { type: "tool_use", id: "toolu_1", name: "update_storefront", input },
+    ],
+    usage: { input_tokens: 900, output_tokens: 120 },
+  });
+  async function chat(
+    aiResponse: unknown,
+    expectedVersion: number | null = null,
+    message = "Make it calm with a sage background",
+    extra: Record<string, unknown> = {},
+  ) {
+    return call("storefront-chat", {
+      storeId: "a",
+      input: { message, expectedVersion },
+      aiResponse,
+      ...extra,
+    });
+  }
+  const view = async () =>
+    (await call("storefront-view", { storeId: "a" })).data;
+  const site = {
+    html: '<main id="content">A custom site</main>',
+    css: "body{background:#eef4ed}",
+    js: 'document.body.dataset.ready="yes";',
+  };
+  it("supplies only this merchant's ready public images to the model", async () => {
+    await query(
+      "INSERT INTO assets(id,store_id,key,name,type,size,ready,created_at,purpose) VALUES ('own-image','a','a/image','own.png','image/png',16,1,1,'image'),('other-image','b','b/image','other.png','image/png',16,1,1,'image'),('pending-image','a','a/pending','pending.png','image/png',16,0,1,'image')",
+    );
+    await query("UPDATE stores SET photo='/api/media/own-image' WHERE id='a'");
+    await query(
+      "UPDATE products SET image='/api/media/own-image' WHERE id='paid'",
+    );
+    const result = await chat(
+      toolReply({ reply: "Which image would you like to use?" }),
+    );
+    const content = result.data.calls[0].input.messages.at(-1).content;
+    expect(content).toContain(
+      '"availableImages":[{"id":"own-image","name":"own.png","url":"https://app.example.test/media/own-image"}]',
+    );
+    expect(content).toContain(
+      '"photo":"https://app.example.test/media/own-image"',
+    );
+    expect(content).toContain(
+      '"image":"https://app.example.test/media/own-image"',
+    );
+    expect(content).not.toContain("other-image");
+    expect(content).not.toContain("pending-image");
+    expect((await view()).draft).toBeNull();
+  });
+  it("sends Haiku through the binding with real products and current files, saving only a draft", async () => {
+    const r = await chat(
+      toolReply({ reply: "Built your custom storefront.", files: site }),
+    );
+    expect(r.status).toBe(200);
+    const sent = r.data.calls[0];
+    expect(sent.model).toBe("anthropic/claude-haiku-5.5");
+    expect(sent.options).toEqual({ gateway: { id: "default" } });
+    expect(sent.input.max_tokens).toBe(16384);
+    expect(sent.input.tools[0].name).toBe("update_storefront");
+    const context = sent.input.messages.at(-1).content;
+    expect(context).toContain('"id":"paid"');
+    expect(context).toContain('"price":2000');
+    expect(context).toContain('"formattedPrice":"$20.00"');
+    expect(context).toContain("Sore.products");
+    expect(context).not.toContain("private.example.test");
+    expect(context).not.toContain('"id":"other"');
+    expect(r.data.result.draftVersion).toBe(1);
+    expect(r.data.result.reply).toBe("Built your custom storefront.");
+    expect(r.data.result.gatewayLogId).toBe("log_fixture");
+    expect(r.data.result.changes).toEqual(["Custom site files"]);
+    const v = await view();
+    expect(v.effective.customSite).toEqual(site);
+    expect(v.live.customSite).toBeNull();
+    expect(v.messages.map((m: any) => m.role)).toEqual(["user", "assistant"]);
+    expect(
+      (await query("SELECT price FROM products WHERE id='paid'"))[0].price,
+    ).toBe(2000);
+  });
+  it("applies targeted find/replace edits and rejects edits that don't match exactly once", async () => {
+    await chat(toolReply({ reply: "Built it", files: site }));
+    const ok = await chat(
+      toolReply({
+        reply: "Changed the heading",
+        edits: [
+          { file: "html", find: "A custom site", replace: "Hello there" },
+          { file: "css", find: "#eef4ed", replace: "#fff8e7" },
+        ],
+      }),
+      1,
+    );
+    expect(ok.status).toBe(200);
+    expect((await view()).effective.customSite).toEqual({
+      ...site,
+      html: '<main id="content">Hello there</main>',
+      css: "body{background:#fff8e7}",
+    });
+    const miss = await chat(
+      toolReply({
+        reply: "Nope",
+        edits: [{ file: "js", find: "not in the file", replace: "x" }],
+      }),
+      2,
+    );
+    expect(miss.status).toBe(422);
+    expect((await view()).effective.customSite?.html).toContain("Hello there");
+  });
+  it("replaces only supplied files, includes history and refuses concurrent edits or stale publish/discard", async () => {
+    await chat(toolReply({ reply: "Built it", files: site }));
+    const second = await chat(
+      toolReply({
+        reply: "Updated the CSS",
+        files: { css: "body{background:gold}" },
+      }),
+      1,
+    );
+    expect(second.status).toBe(200);
+    expect(second.data.calls[0].input.messages).toHaveLength(3);
+    expect(second.data.calls[0].input.messages.at(-1).content).toContain(
+      "A custom site",
+    );
+    expect(second.data.result.draftVersion).toBe(2);
+    expect((await view()).effective.customSite).toEqual({
+      ...site,
+      css: "body{background:gold}",
+    });
+    expect(
+      (await chat(toolReply({ reply: "Stale", files: { html: "stale" } }), 1))
+        .status,
+    ).toBe(409);
+    expect(
+      (await call("storefront-publish", { storeId: "a", expectedVersion: 1 }))
+        .status,
+    ).toBe(409);
+    expect(
+      (await call("storefront-discard", { storeId: "a", expectedVersion: 1 }))
+        .status,
+    ).toBe(409);
+    await query("UPDATE stores SET bio='Written by hand' WHERE id='a'");
+    expect(
+      (await call("storefront-publish", { storeId: "a", expectedVersion: 2 }))
+        .status,
+    ).toBe(200);
+    const v = await view();
+    expect(v.draft).toBeNull();
+    expect(v.live.customSite.css).toContain("gold");
+    expect(v.live.store.bio).toBe("Written by hand");
+    const fresh = await chat(
+      toolReply({ reply: "New draft", files: { css: "body{color:blue}" } }),
+    );
+    expect(fresh.data.calls[0].input.messages).toHaveLength(1);
+    expect(fresh.data.result.draftVersion).toBeGreaterThan(2);
+    // A stale token from an earlier session can never match a new draft.
+    expect(
+      (await call("storefront-publish", { storeId: "a", expectedVersion: 1 }))
+        .status,
+    ).toBe(409);
+  });
+  it("supports manual save, discard, reset and monotonic concurrency tokens", async () => {
+    const save = (custom: unknown, expectedVersion: number | null) =>
+      call("storefront-save", { storeId: "a", site: custom, expectedVersion });
+    const first = await save(site, null);
+    expect(first.status).toBe(200);
+    expect((await save(site, null)).status).toBe(409);
+    await call("storefront-publish", {
+      storeId: "a",
+      expectedVersion: first.data.version,
+    });
+    const reset = await chat(
+      toolReply({
+        reply: "Restored the template in draft",
+        resetToTemplate: true,
+      }),
+    );
+    expect(reset.status).toBe(200);
+    expect((await view()).effective.customSite).toBeNull();
+    expect((await view()).live.customSite).toEqual(site);
+    const discarded = await call("storefront-discard", {
+      storeId: "a",
+      expectedVersion: reset.data.result.draftVersion,
+    });
+    expect(discarded.data.discarded).toBe(true);
+    expect((await view()).live.customSite).toEqual(site);
+    const resetAgain = await save(null, null);
+    await call("storefront-publish", {
+      storeId: "a",
+      expectedVersion: resetAgain.data.version,
+    });
+    expect((await view()).live.customSite).toBeNull();
+    expect(
+      (
+        await call("storefront-publish", {
+          storeId: "a",
+          expectedVersion: resetAgain.data.version,
+        })
+      ).status,
+    ).toBe(409);
+  });
+  it("rejects oversized UTF-8 files, oversized total sites, unsupported tool keys and truncated output", async () => {
+    for (const files of [
+      { html: "x".repeat(49153) },
+      { js: "😀".repeat(12289) },
+      {
+        html: "a".repeat(40000),
+        css: "b".repeat(40000),
+        js: "c".repeat(40000),
+      },
+    ]) {
+      expect(
+        (await chat(toolReply({ reply: "Too large", files }))).status,
+      ).toBe(422);
+    }
+    expect(
+      (
+        await chat(
+          toolReply({
+            reply: "Change price",
+            products: [{ id: "paid", price: 1 }],
+          }),
+        )
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await chat({
+          ...toolReply({ reply: "Truncated", files: site }),
+          stop_reason: "max_tokens",
+        })
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await call("storefront-save", {
+          storeId: "a",
+          expectedVersion: null,
+          site: { ...site, html: "x".repeat(49153) },
+        })
+      ).status,
+    ).toBe(400);
+    expect((await view()).draft).toBeNull();
+  });
+  it("reports failures/refusals, missing bindings and daily limits without saving", async () => {
+    expect((await chat(null, null, "hi", { aiFail: true })).status).toBe(502);
+    expect((await chat({ stop_reason: "refusal", content: [] })).status).toBe(
+      422,
+    );
+    expect((await chat(null, null, "hi", { noAi: true })).status).toBe(503);
+    await query(
+      "UPDATE rates SET count=150 WHERE key LIKE 'storefront-ai:a:%'",
+    );
+    expect(
+      (await chat(toolReply({ reply: "Over limit", files: site }))).status,
+    ).toBe(429);
+    expect((await view()).messages).toEqual([]);
+  });
+  it.each([
+    [
+      "Add Google Analytics",
+      "External scripts and analytics are blocked. I can add a static statistics section with your own supplied numbers.",
+    ],
+    [
+      "Embed my YouTube video",
+      "Video embeds are blocked. I can create a static video introduction section instead.",
+    ],
+    [
+      "Add a newsletter signup form",
+      "This site cannot collect or store email addresses. I can add a Sore product button instead.",
+    ],
+    [
+      "Make the course $5",
+      "Prices belong in the product editor. I can keep displaying the real price from Sore.",
+    ],
+  ])("returns guidance without saving for %s", async (message, reply) => {
+    const result = await chat(toolReply({ reply }), null, message);
+    expect(result.status).toBe(200);
+    expect(result.data.result.reply).toBe(reply);
+    expect(result.data.result.changes).toEqual([]);
+    expect((await view()).draft).toBeNull();
+    expect(result.data.calls[0].input.system).toContain(
+      "WITHOUT files, edits or resetToTemplate",
+    );
+  });
+  it("also saves no draft for a plain text clarification", async () => {
+    const reply =
+      "Would you prefer a warm editorial layout or a compact product grid?";
+    const result = await chat(
+      { content: [{ type: "text", text: reply }], stop_reason: "end_turn" },
+      null,
+      "Make it better",
+    );
+    expect(result.data.result.reply).toBe(reply);
+    expect((await view()).draft).toBeNull();
+  });
+});
+
+describe("Public website images", () => {
+  it.each([
+    ["png", "image/png", png],
+    ["jpg", "image/jpeg", new Uint8Array([255, 216, 255, 0])],
+    ["webp", "image/webp", new TextEncoder().encode("RIFF0000WEBP")],
+    ["gif", "image/gif", new TextEncoder().encode("GIF89a000000")],
+    [
+      "avif",
+      "image/avif",
+      new Uint8Array([
+        0, 0, 0, 20, 102, 116, 121, 112, 97, 118, 105, 102, 0, 0, 0, 0, 97, 118,
+        105, 102,
+      ]),
+    ],
+  ])(
+    "validates and serves public %s with restrictive headers",
+    async (extension, type, bytes) => {
+      const prepared = await call("prepare-upload", {
+        storeId: "a",
+        input: {
+          name: `site.${extension}`,
+          type,
+          size: bytes.length,
+          purpose: "image",
+        },
+      });
+      expect(prepared.status).toBe(200);
+      const assetId = prepared.data.assetId;
+      const key = (
+        await query("SELECT key FROM assets WHERE id=?", [assetId])
+      )[0].key;
+      await call("put-file", { key, bytes: Array.from(bytes) });
+      expect((await call("upload", { storeId: "a", assetId })).status).toBe(
+        200,
+      );
+      const response = await mf.dispatchFetch(
+        "https://mcp.example.test/test/public-image",
+        { method: "POST", body: JSON.stringify({ assetId }) },
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe(type);
+      expect(response.headers.get("content-security-policy")).toBe(
+        "default-src 'none'",
+      );
+      expect(response.headers.get("content-disposition")).toBe("inline");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(response.headers.get("cache-control")).toBe(
+        "public, max-age=31536000, immutable",
+      );
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+    },
+  );
+  it("refuses SVG, private deliverables, samples and incomplete images", async () => {
+    expect(
+      (
+        await call("prepare-upload", {
+          storeId: "a",
+          input: {
+            name: "bad.svg",
+            type: "image/svg+xml",
+            size: 10,
+            purpose: "image",
+          },
+        })
+      ).status,
+    ).toBe(400);
+    for (const [assetId, purpose, type, ready] of [
+      ["svg", "image", "image/svg+xml", 1],
+      ["private", "deliverable", "image/png", 1],
+      ["sample", "sample", "image/png", 1],
+      ["pending", "image", "image/png", 0],
+    ] as const) {
+      await query(
+        "INSERT INTO assets(id,store_id,key,name,type,size,ready,created_at,purpose) VALUES (?,'a',?,'file',?,16,?,1,?)",
+        [assetId, assetId, type, ready, purpose],
+      );
+      expect((await call("public-image", { assetId })).status).toBe(404);
+    }
+    expect((await call("public-image", { assetId: "asset_a" })).status).toBe(
+      404,
+    );
+    expect((await call("public-image", { assetId: "missing" })).status).toBe(
+      404,
+    );
+  });
+  it("rejects SVG bytes disguised as a raster upload", async () => {
+    const bytes = new TextEncoder().encode('<svg onload="alert(1)"></svg>');
+    const prepared = await call("prepare-upload", {
+      storeId: "a",
+      input: {
+        name: "bad.png",
+        type: "image/png",
+        size: bytes.length,
+        purpose: "image",
+      },
+    });
+    const key = (
+      await query("SELECT key FROM assets WHERE id=?", [prepared.data.assetId])
+    )[0].key;
+    await call("put-file", { key, bytes: Array.from(bytes) });
+    expect(
+      (await call("upload", { storeId: "a", assetId: prepared.data.assetId }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await call("public-image", { assetId: prepared.data.assetId })).status,
+    ).toBe(404);
+  });
+});
+
+describe("Custom storefront trust boundary", () => {
+  const data = {
+    imageOrigin: "https://platform.test",
+    store: {
+      name: "</title><script>bad()</script>",
+      slug: "store-a",
+      bio: "",
+      currency: "usd",
+      supportEmail: "support@example.test",
+      photo: "",
+      socials: {},
+    },
+    products: [
+      {
+        id: "paid",
+        title: "Real resource",
+        description: "",
+        price: 2000,
+        formattedPrice: "$20.00",
+        buttonLabel: "Buy",
+        kind: "resource",
+        image: "",
+        deliveryType: "file",
+        position: 0,
+        checkoutUrl: "/store-a/p/paid",
+      },
+    ],
+  };
+  it("allows exactly the platform image path in CSP and exposes absolute image URLs", () => {
+    expect(customSiteCsp("https://platform.test/path")).toBe(
+      CUSTOM_SITE_CSP.replace(
+        "img-src data: blob:",
+        "img-src data: blob: https://platform.test/media/",
+      ),
+    );
+    const store = { ...data.store, photo: "/api/media/store-photo" };
+    const products = [
+      { ...data.products[0], state: "published", image: "/api/media/cover" },
+      {
+        ...data.products[0],
+        id: "remote",
+        state: "published",
+        image: "https://remote.test/photo.png",
+      },
+      {
+        ...data.products[0],
+        id: "svg",
+        state: "published",
+        image: "/art/cover.svg",
+      },
+    ] as Parameters<typeof commerceData>[1];
+    const commerce = commerceData(store, products, "https://platform.test");
+    expect(commerce.store.photo).toBe(
+      "https://platform.test/media/store-photo",
+    );
+    expect(commerce.products.map((product) => product.image)).toEqual([
+      "https://platform.test/media/cover",
+      "",
+      "",
+    ]);
+    expect(
+      customSiteDocument({ html: "", css: "", js: "" }, commerce),
+    ).toContain('"image":"https://platform.test/media/cover"');
+  });
+  it("accepts only checkout messages from the opaque-origin sandbox and known product ids", () => {
+    const source = {} as MessageEventSource;
+    const message = {
+      origin: "null",
+      source,
+      data: {
+        type: "sore:checkout",
+        productId: "paid",
+        url: "https://evil.test",
+      },
+    };
+    expect(checkoutMessageUrl(message, source, data)).toBe("/store-a/p/paid");
+    for (const invalid of [
+      { ...message, origin: "https://platform.test" },
+      { ...message, source: {} as MessageEventSource },
+      { ...message, data: { type: "sore:checkout", productId: "other" } },
+      { ...message, data: { type: "sore:checkout", productId: "__proto__" } },
+      { ...message, data: null },
+    ])
+      expect(checkoutMessageUrl(invalid, source, data)).toBeNull();
+    expect(checkoutMessageUrl(message, null, data)).toBeNull();
+  });
+  it("opens only the store's saved https profile links from the sandbox", () => {
+    const linked = commerceData(
+      {
+        name: "Store A",
+        slug: "store-a",
+        bio: "",
+        currency: "usd",
+        supportEmail: "",
+        socials: JSON.stringify({
+          instagram: "https://instagram.com/storea",
+          bad: "javascript:alert(1)",
+          plain: "http://insecure.test",
+        }),
+      },
+      [],
+    );
+    expect(linked.store.socials).toEqual({
+      instagram: "https://instagram.com/storea",
+    });
+    const source = {} as MessageEventSource;
+    const message = {
+      origin: "null",
+      source,
+      data: { type: "sore:open-link", url: "https://instagram.com/storea" },
+    };
+    expect(linkMessageUrl(message, source, linked)).toBe(
+      "https://instagram.com/storea",
+    );
+    for (const invalid of [
+      { ...message, origin: "https://platform.test" },
+      { ...message, source: {} as MessageEventSource },
+      { ...message, data: { type: "sore:open-link", url: "https://evil.test" } },
+      { ...message, data: { type: "sore:open-link", url: "http://insecure.test" } },
+      { ...message, data: null },
+    ])
+      expect(linkMessageUrl(invalid, source, linked)).toBeNull();
+    expect(customSiteDocument({ html: "", css: "", js: "" }, linked)).toContain(
+      "openLink(url)",
+    );
+  });
+  it("places restrictive CSP before merchant content and escapes injected data and code delimiters", () => {
+    const doc = customSiteDocument(
+      {
+        html: '<main>merchant</main><meta http-equiv="Content-Security-Policy" content="default-src *">',
+        css: "</style><script>cssEscape()</script>",
+        js: "</script><script>jsEscape()</script>",
+      },
+      data,
+    );
+    expect(CUSTOM_SITE_SANDBOX).toBe("allow-scripts");
+    expect(doc.indexOf("Content-Security-Policy")).toBeLessThan(
+      doc.indexOf("merchant"),
+    );
+    expect(doc).toContain(
+      'name="viewport" content="width=device-width, initial-scale=1"',
+    );
+    expect(doc).not.toContain("<script>bad()");
+    expect(doc).not.toContain("<script>cssEscape()");
+    expect(doc).not.toContain("<script>jsEscape()");
+    for (const directive of [
+      "default-src 'none'",
+      "connect-src 'none'",
+      "form-action 'none'",
+      "base-uri 'none'",
+      "worker-src 'none'",
+      "frame-src 'none'",
+    ])
+      expect(CUSTOM_SITE_CSP).toContain(directive);
+  });
+});
+describe("storefront analytics", () => {
+  const visitor = "5b4e0832-42d0-47e3-92fc-cce935111c65";
+  const input = { visitor, productId: "paid", source: "Instagram" };
+  const event = (extra: Record<string, unknown> = {}) =>
+    call("analytics", {
+      slug: "store-a",
+      kind: "pageview",
+      input,
+      headers: { "cf-ipcountry": "CA", "user-agent": "Mobile Safari/600" },
+      ...extra,
+    });
+  const patch = (input: unknown) => event({ action: "settings", input });
+
+  it("collects published pages with coarse dimensions and a store-specific daily visitor hash", async () => {
+    const result = await event();
+    expect(result.data).toMatchObject({
+      recorded: true,
+      points: [
+        {
+          indexes: ["a"],
+          blobs: [
+            "paid",
+            "Instagram",
+            "CA",
+            "Phone",
+            "Safari",
+            expect.stringMatching(/^[0-9a-f]{64}$/),
+          ],
+        },
+      ],
+    });
+    const dailyId = result.data.points[0].blobs[5];
+    const home = await event({
+      input: { visitor, source: "Direct / unknown" },
+    });
+    expect(home.data.points[0].blobs).toEqual([
+      "",
+      "Direct / unknown",
+      "CA",
+      "Phone",
+      "Safari",
+      dailyId,
+    ]);
+    const otherStore = await event({
+      slug: "store-b",
+      input: { visitor, source: "Direct / unknown" },
+    });
+    expect(otherStore.data.points[0].blobs[5]).not.toEqual(dailyId);
+    expect(
+      (await event({ input: { ...input, productId: "other" } })).status,
+    ).toBe(404);
+    expect(
+      (
+        await event({
+          input: { ...input, source: "https://example.com/?email=private" },
+        })
+      ).status,
+    ).toBe(400);
+    await query("UPDATE products SET state='draft' WHERE id='paid'");
+    expect((await event()).status).toBe(404);
+  });
+
+  it("applies tracking, owner and browser privacy controls to both counters", async () => {
+    for (const kind of ["view", "pageview"]) {
+      for (const headers of [{ dnt: "1" }, { "sec-gpc": "1" }]) {
+        expect((await event({ kind, headers })).data.recorded).toBe(false);
+      }
+      expect((await event({ kind, ownerId: "owner_a" })).data.recorded).toBe(
+        false,
+      );
+    }
+    await patch({ excludeOwnerVisits: false });
+    expect((await event({ ownerId: "owner_a" })).data.recorded).toBe(true);
+    await Promise.all([event({ kind: "view" }), event({ kind: "view" })]);
+    expect(await query("SELECT COUNT(*) AS n FROM views")).toEqual([{ n: 1 }]);
+    await patch({ trackingEnabled: false });
+    for (const kind of ["view", "pageview"])
+      expect((await event({ kind })).data.recorded).toBe(false);
+    const other = await event({
+      slug: "store-b",
+      input: { visitor, source: "Other referral" },
+    });
+    expect(other.data.recorded).toBe(true);
+    expect((await patch({ trackingEnabled: "false" })).status).toBe(400);
+  });
+
+  it("pins every provider query to the store and UTC range and preserves commerce when traffic is unavailable", async () => {
+    analyticsQueries = [];
+    const order = await checkout();
+    await confirm(order);
+    const report = await event({ action: "report", days: 7 });
+    expect(report.data.status).toBe("ready");
+    expect(report.data.traffic.trend).toHaveLength(7);
+    expect(report.data.traffic.trend[6]).toMatchObject({
+      visitors: 2,
+      views: 8,
+    });
+    expect(report.data.traffic.trend[0].views).toBe(0);
+    expect(report.data.traffic.productViews).toBe(3);
+    expect(report.data.commerce).toEqual({ checkouts: 1, purchases: 1 });
+    expect(analyticsQueries).toHaveLength(6);
+    for (const sql of analyticsQueries) {
+      expect(sql).toMatch(
+        /FROM test_storefront WHERE index1 = 'a' AND timestamp >= toDateTime\(\d+\) AND timestamp < toDateTime\(\d+\)/,
+      );
+      expect(sql).toContain("SUM(_sample_interval)");
+    }
+    analyticsFailure = true;
+    try {
+      const other = await event({
+        slug: "store-b",
+        action: "report",
+        days: 30,
+      });
+      expect(other.data).toMatchObject({
+        status: "unavailable",
+        traffic: null,
+        commerce: { checkouts: 0, purchases: 0 },
+      });
+    } finally {
+      analyticsFailure = false;
+    }
   });
 });

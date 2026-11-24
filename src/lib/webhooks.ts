@@ -10,6 +10,7 @@ import {
   stripeClient,
 } from "./payments";
 import { syncSubscription } from "./billing";
+import { fulfillLifetimeLink, LIFETIME_OFFER } from "./lifetime-links";
 import { AppError, now } from "./security";
 export async function handleStripeEvent(
   env: AppEnv,
@@ -151,7 +152,9 @@ export async function handleStripeEvent(
       const raw = event.data.object as Stripe.Checkout.Session,
         s = await stripeClient(env).checkout.sessions.retrieve(raw.id);
       const m = s.metadata;
-      if (m?.stream === "platform" && s.payment_status === "paid") {
+      if (s.payment_link && m?.sore_offer === LIFETIME_OFFER) {
+        await fulfillLifetimeLink(env, s);
+      } else if (m?.stream === "platform" && s.payment_status === "paid") {
         const reservation = await env.DB.prepare(
           "SELECT * FROM billing_sessions WHERE id=? AND store_id=? AND session_id=?",
         )
@@ -249,6 +252,11 @@ export async function handleStripeEvent(
           "INSERT INTO billing_refunds (payment_intent,fully_refunded,created_at) VALUES (?,1,?) ON CONFLICT(payment_intent) DO UPDATE SET fully_refunded=1",
         )
           .bind(pi, now())
+          .run();
+        await env.DB.prepare(
+          "UPDATE lifetime_purchases SET status='refunded' WHERE payment_intent=?",
+        )
+          .bind(pi)
           .run();
         await db
           .update(entitlements)

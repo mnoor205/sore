@@ -5,8 +5,9 @@ export default async function Page({
 }: {
   params: Promise<{ section?: string[] }>;
 }) {
-  const section = (await params).section?.[0] || "overview";
+  const parts = (await params).section,
+    section = parts?.[0] || "overview";
   // The Stripe account page became the main Payments page.
   if (section === "stripe") redirect("/dashboard/payments");
-  return <Dashboard section={section} />;
+  return <Dashboard section={section} subsection={parts?.[1]} />;
 }

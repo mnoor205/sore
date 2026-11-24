@@ -10,8 +10,13 @@ import {
   downloadLink,
   download,
 } from "../src/lib/access";
-import { getProduct, saveProduct } from "../src/lib/catalog";
-import { salesSummary } from "../src/lib/reporting";
+import { getStore, getProduct, saveProduct } from "../src/lib/catalog";
+import {
+  recordTraffic,
+  setAnalyticsSettings,
+  storefrontAnalytics,
+} from "../src/lib/storefront-analytics";
+import { productVisitReport, salesSummary } from "../src/lib/reporting";
 import {
   createMcpServer,
   authorizeConnection,
@@ -26,6 +31,7 @@ import {
   stripeAccountSession,
 } from "../src/lib/billing";
 import { database } from "../src/lib/db";
+import { claimLifetime } from "../src/lib/lifetime-links";
 import { stores } from "../src/lib/schema";
 import { eq } from "drizzle-orm";
 import { sign, verify, AppError } from "../src/lib/security";
@@ -46,6 +52,25 @@ import {
   verifyAccessIdentity,
 } from "../src/lib/email-auth";
 import { importStanStore, previewStanStore } from "../src/lib/stan-import";
+import { storefrontChat } from "../src/lib/storefront-ai";
+import { publicImageResponse } from "../src/lib/media";
+import { prepareUpload } from "../src/lib/uploads";
+import {
+  discardDraft,
+  draftView,
+  messages as storefrontMessages,
+  publishDraft,
+  saveDraft,
+} from "../src/lib/storefront-draft";
+async function storeRow(env: AppEnv, storeId: string) {
+  const s = await database(env)
+    .select()
+    .from(stores)
+    .where(eq(stores.id, storeId))
+    .get();
+  if (!s) throw new AppError("Store unavailable", 404);
+  return s;
+}
 export default {
   async fetch(req: Request, env: AppEnv, ctx: ExecutionContext) {
     const path = new URL(req.url).pathname;
@@ -59,6 +84,38 @@ export default {
       const b = (await req.json()) as Record<string, any>;
       let value: unknown;
       switch (path) {
+        case "/test/analytics": {
+          const store = await getStore(env, b.slug);
+          const points: AnalyticsEngineDataPoint[] = [];
+          const analyticsEnv = {
+            ...env,
+            ANALYTICS_DATASET: "test_storefront",
+            ANALYTICS_ACCOUNT_ID: "0".repeat(32),
+            ANALYTICS_READ_TOKEN: "test",
+            STOREFRONT_ANALYTICS: {
+              writeDataPoint(event?: AnalyticsEngineDataPoint) {
+                if (event) points.push(event);
+              },
+            },
+          };
+          if (b.action === "report")
+            value = await storefrontAnalytics(analyticsEnv, store, b.days);
+          else if (b.action === "settings")
+            value = await setAnalyticsSettings(env, store, b.input);
+          else
+            value = {
+              recorded: await recordTraffic(
+                analyticsEnv,
+                store,
+                b.kind,
+                new Headers(b.headers),
+                async () => b.ownerId,
+                async () => b.input,
+              ),
+              points,
+            };
+          break;
+        }
         case "/test/email-auth-start":
           value = await beginEmailLogin(env, b.returnTo);
           break;
@@ -85,6 +142,61 @@ export default {
         case "/test/stan-import":
           value = await importStanStore(env, b.storeId, b.input);
           break;
+        case "/test/storefront-chat": {
+          // A stand-in for the Workers AI binding that records what the app sends.
+          const calls: unknown[] = [];
+          const aiEnv: AppEnv = {
+            ...env,
+            AI: b.noAi
+              ? undefined
+              : {
+                  aiGatewayLogId: "log_fixture",
+                  async run(model, input, options) {
+                    calls.push({ model, input, options });
+                    if (b.aiFail) throw new Error("gateway unavailable");
+                    return b.aiResponse;
+                  },
+                },
+          };
+          const result = await storefrontChat(
+            aiEnv,
+            await storeRow(env, b.storeId),
+            b.input,
+          );
+          value = { result, calls };
+          break;
+        }
+        case "/test/storefront-view": {
+          const view = await draftView(env, await storeRow(env, b.storeId));
+          value = {
+            ...view,
+            messages: await storefrontMessages(env, b.storeId),
+          };
+          break;
+        }
+        case "/test/storefront-save": {
+          const view = await draftView(env, await storeRow(env, b.storeId));
+          value = {
+            version: await saveDraft(
+              env,
+              b.storeId,
+              view.live,
+              { ...view.live, customSite: b.site },
+              b.expectedVersion,
+            ),
+          };
+          break;
+        }
+        case "/test/storefront-publish":
+          value = await publishDraft(
+            env,
+            await storeRow(env, b.storeId),
+            b.expectedVersion,
+          );
+          break;
+        case "/test/storefront-discard":
+          value = await discardDraft(env, b.storeId, b.expectedVersion);
+          break;
         case "/test/init":
           await env.DB.exec(b.sql);
           value = { ok: true };
@@ -103,6 +215,9 @@ export default {
           value = await billingCheckout(env, s!, b.kind);
           break;
         }
+        case "/test/claim-lifetime":
+          value = { claimed: await claimLifetime(env, b.storeId) };
+          break;
         case "/test/connect": {
           const s = await database(env)
             .select()
@@ -181,6 +296,18 @@ export default {
           break;
         case "/test/upload":
           value = await completeUpload(env, b.storeId, b.assetId);
+          break;
+        case "/test/prepare-upload":
+          value = await prepareUpload(env, b.storeId, b.input);
+          break;
+        case "/test/public-image":
+          return await publicImageResponse(env, b.assetId);
+        case "/test/put-file":
+          await env.FILES.put(b.key, new Uint8Array(b.bytes));
+          value = { ok: true };
+          break;
+        case "/test/visits":
+          value = await productVisitReport(env, b.storeId, b.range);
           break;
         case "/test/report":
           value = await salesSummary(env, b.storeId, b.range);

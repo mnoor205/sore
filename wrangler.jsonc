@@ -15,7 +15,18 @@
     },
     "redact_query_string": true,
   },
+  "analytics_engine_datasets": [
+    { "binding": "STOREFRONT_ANALYTICS", "dataset": "sore_storefront_dev" },
+  ],
+  "ratelimits": [
+    {
+      "name": "ANALYTICS_LIMITER",
+      "namespace_id": "61",
+      "simple": { "limit": 120, "period": 60 },
+    },
+  ],
   "vars": {
+    "ANALYTICS_DATASET": "sore_storefront_dev",
     "APP_MODE": "development",
     "APP_URL": "http://localhost:3000",
     "MCP_URL": "http://localhost:8788",
@@ -27,6 +38,12 @@
     "MAX_PRODUCTS": "50",
     "MAX_UPLOAD_MB": "25",
     "MAX_STORAGE_MB": "500",
+    "AI_GATEWAY_ID": "default",
+  },
+  // Storefront AI editor: Claude Haiku 5.5 through Cloudflare AI Gateway.
+  // The AI binding always runs remotely, also under `wrangler dev`.
+  "ai": {
+    "binding": "AI",
   },
   "d1_databases": [
     {
@@ -59,7 +76,21 @@
   "env": {
     "production": {
       "name": "coachlane",
+      "analytics_engine_datasets": [
+        {
+          "binding": "STOREFRONT_ANALYTICS",
+          "dataset": "sore_storefront_production",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "ANALYTICS_LIMITER",
+          "namespace_id": "62",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
       "vars": {
+        "ANALYTICS_DATASET": "sore_storefront_production",
         "APP_MODE": "production",
         "APP_URL": "https://REPLACE_APP_DOMAIN",
         "MCP_URL": "https://REPLACE_MCP_DOMAIN",
@@ -71,6 +102,10 @@
         "MAX_PRODUCTS": "50",
         "MAX_UPLOAD_MB": "25",
         "MAX_STORAGE_MB": "500",
+        "AI_GATEWAY_ID": "default",
+      },
+      "ai": {
+        "binding": "AI",
       },
       "d1_databases": [
         {
@@ -102,6 +137,62 @@
       ],
       "workers_dev": false,
     },
+    // Isolated public demo of the storefront editor with fictional data only.
+    // APP_MODE=development enables the demo-workspace sign-in; no real payments,
+    // email or creator accounts. Never point this at staging/production data.
+    "demo": {
+      "name": "coachlane-editor-demo",
+      "vars": {
+        "APP_MODE": "development",
+        "APP_URL": "https://coachlane-editor-demo.warda.workers.dev",
+        "MCP_URL": "https://mcp.getsore.me",
+        "PLATFORM_FEE_BPS": "0",
+        "LTD_PRICE_CENTS": "9900",
+        "LTD_STEP_CENTS": "1000",
+        "LTD_STEP_EVERY": "5",
+        "LTD_LIMIT": "100",
+        "MAX_PRODUCTS": "50",
+        "MAX_UPLOAD_MB": "25",
+        "MAX_STORAGE_MB": "500",
+        "AI_GATEWAY_ID": "default",
+        "STOREFRONT_AI_DAILY_LIMIT": "60",
+        "STOREFRONT_AI_GLOBAL_DAILY_LIMIT": "400",
+      },
+      "ai": {
+        "binding": "AI",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "coachlane-editor-demo",
+          "database_id": "a711b058-274e-4b5f-8b2e-2305d5878bb5",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "r2_buckets": [
+        {
+          "binding": "FILES",
+          "bucket_name": "coachlane-private-demo",
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "FULFILLMENT",
+            "queue": "coachlane-email-demo",
+          },
+        ],
+      },
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "coachlane-editor-demo",
+        },
+      ],
+      "workers_dev": true,
+      "preview_urls": false,
+      "minify": true,
+    },
     "staging": {
       "name": "coachlane-staging",
       "send_email": [
@@ -110,7 +201,21 @@
           "allowed_sender_addresses": ["login@getsore.me"],
         },
       ],
+      "analytics_engine_datasets": [
+        {
+          "binding": "STOREFRONT_ANALYTICS",
+          "dataset": "sore_storefront_staging",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "ANALYTICS_LIMITER",
+          "namespace_id": "63",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
       "vars": {
+        "ANALYTICS_DATASET": "sore_storefront_staging",
         "APP_MODE": "production",
         "APP_URL": "https://getsore.me",
         "MCP_URL": "https://mcp.getsore.me",
@@ -122,13 +227,16 @@
         "MAX_PRODUCTS": "50",
         "MAX_UPLOAD_MB": "25",
         "MAX_STORAGE_MB": "500",
-        "PLATFORM_TAX_ENABLED": "false",
-        "STRIPE_LTD_PRODUCT_ID": "prod_VfOPDFsW1KGqds",
-        "STRIPE_PUBLISHABLE_KEY": "pk_test_51UdkH5LKVkTyYf4FWQomxvjuo5q0QjJREUakLmUVqipWEV9wF24vArAsOAAYwXBp2CkTZZoN6XW0Un1lWGhrsbI000xvT18NCv",
+        "STRIPE_LTD_PRODUCT_ID": "prod_VfOHRGap641ipJ",
+        "STRIPE_PUBLISHABLE_KEY": "pk_test_51UdixZLoa6oioieG0kKhWen77VZ6AWECpI8MsmSWMNa9w6YFkCk8SKfVqL0B29Se8yfnU0wKWeVm0BQLoiu4bMCo00MSa1wldh",
         "ACCESS_ISSUER": "https://polished-butterfly-f3b5.cloudflareaccess.com",
         "ACCESS_AUDIENCE": "7bd5f246386c0e56384f7bdd5a11f26397ce7d2eb70879b490a0016b14d0ccdc",
         "AUTH_PROVIDER": "email",
         "OTP_FROM": "login@getsore.me",
+        "AI_GATEWAY_ID": "default",
+      },
+      "ai": {
+        "binding": "AI",
       },
       "d1_databases": [
         {
