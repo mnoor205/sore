@@ -56,6 +56,20 @@ Tracking starts enabled and signed-in creator visits are excluded by default. Tu
 
 Deployed app version `05b51ed1-a178-41b2-bce2-b209bac81dc9` (previous: `4c12d238-85ab-42d3-b80a-62fe7f088ce1`, which only added the analytics secrets to `84eb7944`) from commit `22ebe29`. The release adds the creator Analytics page at `/dashboard/analytics`, the cookieless storefront pageview beacon (Workers Analytics Engine dataset `sore_storefront_staging`, rate-limit namespace `63`) and per-storefront tracking controls. Migration `0010_storefront_analytics.sql` was applied to `coachlane-staging` beforehand and recorded in `d1_migrations`. `ANALYTICS_ACCOUNT_ID` and `ANALYTICS_READ_TOKEN` (Account Analytics Read, verified against the SQL API) are set; all eight secret bindings are present. The MCP and email Workers are unchanged. TypeScript and all 61 service tests passed before deploy. Live checks: `/`, `/dashboard/analytics`, `/dashboard/payments` and `/privacy` return 200, and the analytics read and settings APIs return 401 when signed out. Both creator storefronts are still drafts, so no real public pageview has been recorded yet; the dataset appears on the first accepted pageview after a storefront is published.
 
+## Flower branding and transactional emails — November 24, 2026
+
+Deployed the approved flower logo beside the complete lowercase sore wordmark, favicon/app icons, social sharing card, and matching sign-in and resource-delivery email templates. The web app and both companion Workers are deployed at 100% to the existing public services. Runtime bindings, secret bindings, domains, queues and schedules are preserved. No migrations were needed.
+
+The release was merged onto the current production source (`f197c73`) to retain checkout billing-address/tax behavior, lifetime payment links, custom storefronts and analytics. Release source: `3ea45fc53c9bd22b94a95e1cca4df2a88d1946b3`.
+
+| Worker | New version | Previous version |
+| --- | --- | --- |
+| coachlane-staging | `2bf78368-25b8-48ae-91b9-4e1756d8316d` | `56c62a0d-b27c-4c0b-b9af-b27eb7b6d1a3` |
+| coachlane-email-staging | `c9b65cd3-926e-48f0-aeb0-de80f9c08a94` | `3ed6e0fe-d767-40cd-8c98-65006b1dd592` |
+| coachlane-mcp-staging | `e801cafe-16be-4d48-bb0b-6a8b0657eac2` | `b1537c3b-8715-4595-97e7-bf6746a7c975` |
+
+Validation: TypeScript, 93 service/template tests, 16 bundled-app tests, the staging OpenNext build, and all three Wrangler dry runs passed. Live checks verified the homepage/sign-in/privacy/terms wordmarks and favicon metadata, byte-for-byte matches for eight icon/brand assets, the current lifetime checkout link and wordmark CSS, workspace authentication (401 with the expected Origin; 403 without Origin), MCP discovery (200) and MCP authentication (401). The Cloudflare API confirms all versions at 100% and the new email templates in the deployed app and delivery Worker source. No real sign-in or fulfillment email was sent during release verification.
+
 ## Payments and founding price ladder release — November 20, 2026
 
 Merged the Stripe work into the redesign and deployed app version `84eb7944-b518-4716-a716-0a16eea88983` (previous: `137c7919-454c-4162-9eeb-ff3d09929c81`) from commit `36f6824`. The release adds the founding price ladder ($99, +$10 every 5 paid purchases), the creator Payments page at `/dashboard/payments` with Stripe Connect embedded components (`/dashboard/stripe` redirects there), country-aware Connect onboarding, and Worker uploads. Migration `0009_founding_price_ladder.sql` was already applied. The MCP Worker was not redeployed because its code is unchanged. The email Worker stays at `3ed6e0fe`. All 58 service tests and 13 bundled-app tests pass. Live checks: `/`, `/sign-in` and `/dashboard/payments` return 200, `/dashboard/stripe` returns 307 to Payments, and the workspace and account-session APIs return 401 when signed out. All six secret bindings are present. No real purchase or Connect onboarding has been run against this version.
