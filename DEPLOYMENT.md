@@ -56,6 +56,12 @@ Tracking starts enabled and signed-in creator visits are excluded by default. Tu
 
 Deployed app version `05b51ed1-a178-41b2-bce2-b209bac81dc9` (previous: `4c12d238-85ab-42d3-b80a-62fe7f088ce1`, which only added the analytics secrets to `84eb7944`) from commit `22ebe29`. The release adds the creator Analytics page at `/dashboard/analytics`, the cookieless storefront pageview beacon (Workers Analytics Engine dataset `sore_storefront_staging`, rate-limit namespace `63`) and per-storefront tracking controls. Migration `0010_storefront_analytics.sql` was applied to `coachlane-staging` beforehand and recorded in `d1_migrations`. `ANALYTICS_ACCOUNT_ID` and `ANALYTICS_READ_TOKEN` (Account Analytics Read, verified against the SQL API) are set; all eight secret bindings are present. The MCP and email Workers are unchanged. TypeScript and all 61 service tests passed before deploy. Live checks: `/`, `/dashboard/analytics`, `/dashboard/payments` and `/privacy` return 200, and the analytics read and settings APIs return 401 when signed out. Both creator storefronts are still drafts, so no real public pageview has been recorded yet; the dataset appears on the first accepted pageview after a storefront is published.
 
+## Email gradient text — November 24, 2026
+
+Deployed source `c2ce74a`: email accent text now shares the button’s exact `linear-gradient(100deg,#b5096b,#c33748)` definition. Gradient text is enabled only when background clipping is supported; other clients retain the solid pink fallback. App version: `747a6e66-4028-4504-a38a-3e86364f2f0e`; delivery Worker version: `ffce3c12-86e5-4cb2-bc89-aede26135846`, both at 100%. MCP remains unchanged.
+
+TypeScript, all 109 tests, the OpenNext build and both dry runs passed. The mobile email preview was visually checked. Cloudflare confirms the gradient, clipping and fallback in both deployed bundles. Live homepage, sign-in, email logo and workspace authentication checks passed. No real email was sent for verification.
+
 ## Flower branding and transactional emails — November 24, 2026
 
 Deployed the approved flower logo beside the complete lowercase sore wordmark, favicon/app icons, social sharing card, and matching sign-in and resource-delivery email templates. The web app and both companion Workers are deployed at 100% to the existing public services. Runtime bindings, secret bindings, domains, queues and schedules are preserved. No migrations were needed.
