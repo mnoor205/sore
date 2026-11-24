@@ -1,4 +1,5 @@
 "use client";
+import { Wordmark } from "./brand";
 import { useEffect, useRef } from "react";
 import { Download, Instagram } from "lucide-react";
 const stores = [
@@ -106,7 +107,10 @@ export default function StorefrontPhones() {
                   </span>
                 </div>
                 <span className="sf-phone-credit">
-                  made with <b>sore.</b>
+                  made with{" "}
+                  <b>
+                    <Wordmark />
+                  </b>
                 </span>
                 <div className="sf-home-indicator" />
               </div>

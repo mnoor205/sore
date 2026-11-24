@@ -26,8 +26,13 @@ import {
 type Env = AppEnv & { OAUTH_KV: KVNamespace; OAUTH_PROVIDER: OAuthHelpers };
 const escape = (value: string) =>
   value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-function consentHtml(details: ConsentDescription, handle: string) {
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect to Sore</title><style>body{font:16px system-ui;color:#ededed;background:#000000;color-scheme:dark;padding:8vh 20px}main{max-width:480px;margin:auto;background:#0a0a0a;padding:36px;border:1px solid #2a2a2a;border-radius:20px}h1{font-size:28px}p{line-height:1.6}button{font:inherit;padding:12px 20px;border:0;border-radius:8px;background:#ff83bd;color:#20000f;margin:16px 12px 0 0}button[value=deny]{background:#111111;color:#ededed}</style></head><body><main><p>SORE / AI CONNECTION</p><h1>Allow ${escape(details.clientName)} to connect to your store?</h1><p>${details.clientDomain ? `Published by <strong>${escape(details.clientDomain)}</strong>.` : "This client registered itself. Its name is not verified."}</p><p>Access will be sent to <strong>${escape(details.redirectHost)}</strong>.</p>${details.redirectIsLoopback ? "<p>This sends access to an app on your computer. Continue only if you started this connection.</p>" : ""}<p>Permission: <strong>store:read</strong>. Catalog and aggregate reporting only. No customer emails, names, payment details, files or private delivery URLs. You can revoke this connection in your dashboard.</p><form method="post" action="/authorize"><input type="hidden" name="handle" value="${escape(handle)}">${details.scope.includes("products:draft:write") ? '<p><label><input type="checkbox" name="scope" value="products:draft:write"> Also allow creating and updating private product drafts. This cannot publish, delete, message customers, or change live prices.</label></p>' : ""}<button name="decision" value="approve">Approve selected permissions</button><button name="decision" value="deny">Deny</button></form></main></body></html>`;
+function consentHtml(
+  details: ConsentDescription,
+  handle: string,
+  appUrl: string,
+) {
+  const brandOrigin = escape(new URL(appUrl).origin);
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect to Sore</title><link rel="icon" href="${brandOrigin}/favicon.ico"><style>body{font:16px system-ui;color:#ededed;background:#000000;color-scheme:dark;padding:8vh 20px}main{max-width:480px;margin:auto;background:#0a0a0a;padding:36px;border:1px solid #2a2a2a;border-radius:20px}h1{font-size:28px}p{line-height:1.6}button{font:inherit;padding:12px 20px;border:0;border-radius:8px;background:#ff83bd;color:#20000f;margin:16px 12px 0 0}button[value=deny]{background:#111111;color:#ededed}</style></head><body><main><p><span style="display:inline-block;font-size:28px;font-weight:750;letter-spacing:-1px"><img src="${brandOrigin}/brand/sore-mark.webp" alt="" width="28" height="28" style="vertical-align:-4px;margin-right:6px">sore</span> / AI CONNECTION</p><h1>Allow ${escape(details.clientName)} to connect to your store?</h1><p>${details.clientDomain ? `Published by <strong>${escape(details.clientDomain)}</strong>.` : "This client registered itself. Its name is not verified."}</p><p>Access will be sent to <strong>${escape(details.redirectHost)}</strong>.</p>${details.redirectIsLoopback ? "<p>This sends access to an app on your computer. Continue only if you started this connection.</p>" : ""}<p>Permission: <strong>store:read</strong>. Catalog and aggregate reporting only. No customer emails, names, payment details, files or private delivery URLs. You can revoke this connection in your dashboard.</p><form method="post" action="/authorize"><input type="hidden" name="handle" value="${escape(handle)}">${details.scope.includes("products:draft:write") ? '<p><label><input type="checkbox" name="scope" value="products:draft:write"> Also allow creating and updating private product drafts. This cannot publish, delete, message customers, or change live prices.</label></p>' : ""}<button name="decision" value="approve">Approve selected permissions</button><button name="decision" value="deny">Deny</button></form></main></body></html>`;
 }
 function cookie(req: Request, name: string) {
   return (
@@ -131,7 +136,7 @@ const defaultHandler = {
           `__Host-cl-consent=${session}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=300`,
         );
         consent.headers.set("Content-Type", "text/html;charset=utf-8");
-        return new Response(consentHtml(details, consent.handle), {
+        return new Response(consentHtml(details, consent.handle, env.APP_URL), {
           headers: consent.headers,
         });
       }

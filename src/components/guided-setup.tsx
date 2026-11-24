@@ -1,5 +1,5 @@
 "use client";
-import Brand from "./brand";
+import Brand, { Wordmark } from "./brand";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -355,7 +355,9 @@ export default function GuidedSetup() {
                   <label>
                     Store address
                     <div className="input-prefix">
-                      <span>Sore /</span>
+                      <span>
+                        <Wordmark /> /
+                      </span>
                       <input
                         required
                         maxLength={40}

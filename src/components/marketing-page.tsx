@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Brand from "./brand";
 import { Check, Link2, Download, FileText } from "lucide-react";
 import type { FoundingOffer } from "@/lib/founding-offer";
 import McpSetupGuide from "./mcp-setup-guide";
@@ -7,13 +8,6 @@ import StorefrontPhones from "./storefront-phones";
 import SellingWalkthrough from "./selling-walkthrough";
 import AiCompatibility from "./ai-compatibility";
 import FoundingPriceChange from "./founding-price-change";
-function Wordmark() {
-  return (
-    <Link href="/" className="sf-wordmark" aria-label="Sore home">
-      sore<span>.</span>
-    </Link>
-  );
-}
 function OfferLink({ price }: { price: number | undefined }) {
   return (
     <a className="sf-button sf-primary" href="#lifetime">
@@ -38,6 +32,18 @@ export default function MarketingPage({
       "PDFs, templates, guides, workbooks, and other digital downloads. Free resources, too. Courses, memberships, bookings, and email marketing aren’t included.",
     ],
     [
+      "Can I bring my products over from Stan?",
+      "Paste your public Stan store link to copy your listings and images into private drafts. Add your download files, review each listing, and publish when you’re ready.",
+    ],
+    [
+      "Can I grow my email list with a free download?",
+      "Offer a free workbook in exchange for an email address. Readers can opt in separately to marketing. Export your contacts and their opt-in status as a CSV for your email tool.",
+    ],
+    [
+      "Can I run a launch discount?",
+      "Create a coupon for your promotion. Set an expiration date or limit how many times buyers can use it.",
+    ],
+    [
       "Which AI assistants work with Sore?",
       "Assistants that support remote MCP connections. Add Sore, sign in, and approve access. Availability depends on your assistant and plan. Setup help is included.",
     ],
@@ -51,7 +57,11 @@ export default function MarketingPage({
     ],
     [
       "Any limits or separate costs?",
-      `${offer.quotas.products} products, ${offer.quotas.storageMB} MB storage, ${offer.quotas.uploadMB} MB per file. AI plans, Stripe fees, and applicable taxes are separate. The platform transaction fee is currently 0%. Final purchase and refund terms will be confirmed before checkout opens.`,
+      `${offer.quotas.products} products, ${offer.quotas.storageMB} MB storage, ${offer.quotas.uploadMB} MB per file. Founding members pay Sore no platform fee on sales. Stripe processing fees, AI plans, and applicable taxes are separate. Final purchase and refund terms will be confirmed before checkout opens.`,
+    ],
+    [
+      "How will sales tax work?",
+      "Once Stripe Tax is enabled, checkout will calculate and collect applicable sales tax where you’re registered to collect it. You’ll still be responsible for registration, filing, and remittance.",
     ],
     [
       "Can you help me get set up?",
@@ -69,7 +79,7 @@ export default function MarketingPage({
       </a>
       <header className="sf-header">
         <div className="sf-container sf-nav">
-          <Wordmark />
+          <Brand className="sf-wordmark" />
           <nav aria-label="Main navigation">
             <a href="#storefront">Storefronts</a>
             <a href="#connect">Connect AI</a>
@@ -94,6 +104,7 @@ export default function MarketingPage({
           </h1>
           <p>
             Sell workbooks, templates, and downloads from one link in your bio.
+            {" "}Founding members pay 0% platform fees on every sale.
           </p>
           <div className="sf-hero-actions">
             <OfferLink price={price} />
@@ -152,6 +163,12 @@ export default function MarketingPage({
             <p>One payment. Lifetime access.</p>
             <ul className="sf-included">
               <li>
+                <Check size={17} /> 0% platform fees on sales
+              </li>
+              <li>
+                <Check size={17} /> Coming soon: automatic sales tax at checkout
+              </li>
+              <li>
                 <Check size={17} /> Your storefront + digital products
               </li>
               <li>
@@ -204,7 +221,7 @@ export default function MarketingPage({
         </section>
       </main>
       <footer className="sf-container sf-footer">
-        <Wordmark />
+        <Brand className="sf-wordmark" />
         <span>For coaches. For creators. For your next product.</span>
         <div>
           <Link href="/privacy">Privacy</Link>

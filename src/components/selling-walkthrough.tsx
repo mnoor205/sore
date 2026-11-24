@@ -43,7 +43,7 @@ export default function SellingWalkthrough() {
           </div>
           <div className="sf-selling-copy">
             <h3>Add your product.</h3>
-            <p>A file, a cover, and your price.</p>
+            <p>Show buyers a free sample and keep the full workbook private.</p>
           </div>
         </li>
         <li>
@@ -68,7 +68,7 @@ export default function SellingWalkthrough() {
           </div>
           <div className="sf-selling-copy">
             <h3>Share one link.</h3>
-            <p>Your whole store, right in your bio.</p>
+            <p>Put your store in your bio or send a direct link to one product.</p>
           </div>
         </li>
         <li>
@@ -90,7 +90,7 @@ export default function SellingWalkthrough() {
           </div>
           <div className="sf-selling-copy">
             <h3>Deliver the download.</h3>
-            <p>A simple path from checkout to file.</p>
+            <p>Try the download yourself before launch, without making a purchase.</p>
           </div>
         </li>
       </ol>

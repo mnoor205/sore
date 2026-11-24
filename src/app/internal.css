@@ -47,9 +47,6 @@
     sans-serif;
   letter-spacing: -2px;
 }
-.sore-brand > span {
-  color: #fc6767;
-}
 :is(.app-shell, .guided-setup, .auth-page, .modal-backdrop) .button {
   min-height: 46px;
   padding: 12px 21px;

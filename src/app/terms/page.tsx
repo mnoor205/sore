@@ -1,10 +1,9 @@
 import Link from "next/link";
+import Brand from "@/components/brand";
 export default function Page() {
   return (
     <main className="policy-page">
-      <Link className="brand" href="/">
-        Sore.
-      </Link>
+      <Brand />
       <h1>Resource terms</h1>
       <p>
         Digital resources are sold or provided by the creator identified on the

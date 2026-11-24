@@ -1,4 +1,5 @@
 "use client";
+import { Wordmark } from "./brand";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "./shared";
@@ -83,7 +84,9 @@ export default function StoreForm({
           <label>
             Store address
             <div className="input-prefix">
-              <span>Sore /</span>
+              <span>
+                <Wordmark /> /
+              </span>
               <input
                 required
                 minLength={3}

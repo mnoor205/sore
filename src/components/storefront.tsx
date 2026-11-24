@@ -1,4 +1,5 @@
 "use client";
+import { Wordmark } from "./brand";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -299,7 +300,10 @@ export default function Storefront({
             )}
           </div>
           <Link className="powered-by" href="/">
-            made with <b>Sore.</b>
+            made with{" "}
+            <b>
+              <Wordmark />
+            </b>
           </Link>
         </footer>
       </main>

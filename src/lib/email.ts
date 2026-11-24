@@ -3,6 +3,7 @@ import { database } from "./db";
 import { outbox, emailAttempts, orders } from "./schema";
 import { development, type AppEnv } from "./env";
 import { id, now } from "./security";
+import { resourceEmail } from "./resource-email";
 export async function dispatchOutbox(env: AppEnv) {
   const due = await database(env)
     .select({ id: outbox.id })
@@ -63,8 +64,7 @@ export async function deliverEmail(env: AppEnv, outboxId: string) {
       ]);
       return;
     }
-    const subject = `Your resource: ${payload.title}`;
-    const text = `Hi ${payload.name},\n\nYour resource is ready: ${payload.title}\n\nAccess your purchase: ${payload.url}\n\nKeep this private access link safe. Contact the creator for support.`;
+    const { subject, text, html } = resourceEmail(payload);
     if (env.FULFILLMENT_EMAIL && env.EMAIL_FROM) {
       // Cloudflare Email Sending on the verified getsore.me domain.
       try {
@@ -73,6 +73,7 @@ export async function deliverEmail(env: AppEnv, outboxId: string) {
           to: payload.to,
           subject,
           text,
+          html,
         });
       } catch {
         throw new Error("email_provider_cloudflare");
@@ -92,6 +93,7 @@ export async function deliverEmail(env: AppEnv, outboxId: string) {
           to: [payload.to],
           subject,
           text,
+          html,
         }),
       });
       if (!response.ok) throw new Error(`email_provider_${response.status}`);

@@ -72,9 +72,6 @@
   font-weight: 750;
   flex-shrink: 0;
 }
-.sf-wordmark > span {
-  color: #fc6767;
-}
 .sf-nav nav,
 .sf-nav > div {
   display: flex;

@@ -1,3 +1,5 @@
+import { loginEmail } from "../src/lib/login-email";
+import { resourceEmail } from "../src/lib/resource-email";
 import { beforeAll, beforeEach, afterAll, it, expect } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { build } from "esbuild";
@@ -73,7 +75,10 @@ it("sends the branded multipart email, hashes codes, preserves creator identity,
     email: "login@getsore.me",
     name: "Sore",
   });
-  expect(message.html).toContain("#ec008c");
+  expect(message.html).toContain(
+    "https://getsore.me/brand/sore-mark-email.png",
+  );
+  expect(message.html).toContain(">sore</span>");
   expect(message.html).toContain(s.code);
   expect(message.text).toContain("10 minutes");
   const rows = await query("SELECT * FROM creator_email_codes");
@@ -146,4 +151,27 @@ it("sanitizes redirect proposals and enforces IP send limits", async () => {
   expect(
     (await call("request", { email: "blocked@example.test" })).status,
   ).toBe(429);
+});
+
+it("escapes buyer and product content in delivery email HTML and preserves the private URL", () => {
+  const message = resourceEmail({
+    name: '<img src=x onerror="alert(1)">',
+    title: 'A <script> & "workbook"',
+    url: "https://getsore.me/access/order?token=private&source=email",
+  });
+  expect(message.html).not.toContain("<script>");
+  expect(message.html).not.toContain("<img src=x");
+  expect(message.html).toContain("&lt;script&gt; &amp; &quot;workbook&quot;");
+  expect(message.html).toContain("token=private&amp;source=email");
+  expect(message.text).toContain("token=private&source=email");
+  expect(() =>
+    resourceEmail({
+      name: "Jamie",
+      title: "Guide",
+      url: "javascript:alert(1)",
+    }),
+  ).toThrow("Invalid resource access URL");
+});
+it("rejects non-code content before rendering sign-in email HTML", () => {
+  expect(() => loginEmail("<script>")).toThrow("Invalid login code");
 });

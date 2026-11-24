@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Brand from "./brand";
 import Link from "next/link";
 import {
   Check,
@@ -88,9 +89,7 @@ export default function OrderScreen({
     order && ["paid", "free"].includes(order.status) && !order.refunded;
   return (
     <div className="order-page">
-      <Link className="brand" href="/">
-        <span className="brand-icon">s</span>Sore.
-      </Link>
+      <Brand />
       <section className="order-card">
         {order?.isTest && (
           <div className="notice">

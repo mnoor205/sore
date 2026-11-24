@@ -6322,3 +6322,27 @@ video {
   margin: 0;
   text-align: left;
 }
+
+/* Keep the flower beside the complete sore wordmark at every size. */
+.sore-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22em;
+  color: inherit;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: -0.055em;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+.sore-wordmark-mark {
+  display: block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  max-width: none;
+  object-fit: contain;
+}
+.not-found > .brand {
+  justify-content: center;
+}
