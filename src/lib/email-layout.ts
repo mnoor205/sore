@@ -1,4 +1,5 @@
-// Table layout and inline styles support mail clients without web fonts or CSS gradients.
+// Clients without gradient-text support retain the readable solid accent color.
+export const EMAIL_ACCENT_GRADIENT = "linear-gradient(100deg,#b5096b,#c33748)";
 export function escapeEmailHtml(value: string) {
   return value.replace(
     /[&<>"']/g,
@@ -35,6 +36,16 @@ export function emailLayout({
   body, table, td, a { -webkit-text-size-adjust: 100%; }
   table { border-collapse: separate; border-spacing: 0; }
   a { color: #ededed; }
+  @supports ((background-clip: text) or (-webkit-background-clip: text)) {
+    .email-gradient {
+      display: inline-block;
+      background-image: ${EMAIL_ACCENT_GRADIENT};
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent !important;
+      -webkit-text-fill-color: transparent;
+    }
+  }
   @media only screen and (max-width: 480px) {
     .email-gutter { padding: 24px 20px !important; }
     .email-heading { font-size: 36px !important; letter-spacing: -1.5px !important; }
